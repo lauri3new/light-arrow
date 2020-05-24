@@ -1,0 +1,31 @@
+{
+  "name": "light-arrow",
+  "version": "0.1.0",
+  "description": "arrow data type",
+  "repository": "https://github.com/lauri3new/light-arrow",
+  "main": "dist/index.js",
+  "files": [
+    "dist/**/*"
+  ],
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "echo \"Warn: no test specified\" && exit 0",
+    "build": "tsc",
+    "lint": "eslint --fix './src/**/*'",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "author": "Laurence Newman",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express": "^4.17.6",
+    "@typescript-eslint/eslint-plugin": "^3.0.0",
+    "@typescript-eslint/parser": "^3.0.0",
+    "eslint": "^6.8.0",
+    "eslint-config-airbnb-base": "^14.1.0",
+    "eslint-plugin-import": "^2.20.2",
+    "typescript": "^3.9.3"
+  },
+  "dependencies": {
+    "path-to-regexp": "^6.1.0"
+  }
+}
