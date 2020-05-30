@@ -4,7 +4,7 @@ import {
   Result, resultAction
 } from './result'
 import {
-  Arrow
+  Arrow, combine
 } from '../index'
 import { Left, Right } from '../either'
 
@@ -88,3 +88,10 @@ const bindApp = <A = {}>(
       onError)
       .then(result => runResponse(res, result)))
   }
+
+const combineRoutes = <A extends Context>(...as: httpRoutes<A>[]) => {
+  if (as.length === 1) return as[0]
+  if (as.length === 2) return as[0].combine(as[1])
+  const [a, b, ...aas] = as
+  return combine(a.combine(b), ...aas)
+}

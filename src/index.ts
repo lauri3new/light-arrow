@@ -7,7 +7,7 @@ export interface Arrow<Ctx, E, A> {
   map: <B>(f: (_:A) => B) => Arrow<Ctx, E, B>
   leftMap: <E2>(f: (_:E) => E2) => Arrow<Ctx, E2, A>
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>
-  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E | E2, B>) => Arrow<Ctx, E | E2, B>
+  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E2, B>) => Arrow<Ctx, E | E2, B>
   flatMapF: <E2, B>(f: (_:A) => (_:Ctx) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
   andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<Ctx, E | E2, B>
   andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
@@ -31,7 +31,7 @@ export const Arrow = <Ctx, E, A>(__val: (_:Ctx) => Promise<Either<E, A>>):Arrow<
   map: <B>(f: (_:A) => B):Arrow<Ctx, E, B> => Arrow<Ctx, E, B>((_:Ctx) => __val(_).then(a => a.map(f))),
   leftMap: <E2>(f: (_:E) => E2):Arrow<Ctx, E2, A> => Arrow<Ctx, E2, A>((_:Ctx) => __val(_).then(a => a.leftMap(f))),
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>((_:Ctx) => __val(_).then(a => a.biMap(f, g))),
-  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E | E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
+  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
     (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2).__val(a)
