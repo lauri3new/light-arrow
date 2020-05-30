@@ -23,10 +23,10 @@ export enum HttpMethods {
   OPTIONS = 'options'
 }
 
-export type httpRoutes<A extends Context, B> = Arrow<A, notFound | Result, Result>
-export type httpApp = (ctx: Context) => Promise<Result>
+export type httpRoutes<A extends Context> = Arrow<A, notFound | Result, Result>
+export type httpApp<A extends Context> = Arrow<A, Result, Result>
 
-export const runResponse = (res: Response, result: Result) => {
+export const runResponse = (res: Response, result: Result): void => {
   res.set('content-type', result.contentType || 'application/json')
   const {
     headers, cookies, clearCookies, action
@@ -79,7 +79,7 @@ export const del = matchMethodAndPath(HttpMethods.DELETE)
 export const options = matchMethodAndPath(HttpMethods.OPTIONS)
 
 const bindApp = <A = {}>(
-  a: Arrow<A & Context, Result, Result>,
+  a: httpApp<A & Context>,
   onError: (e?: Error) => Result,
   dependencies: A) => (expressApp: Express) => {
     expressApp.use('*', (req, res) => a.run({ req, ...dependencies },

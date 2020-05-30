@@ -2,33 +2,67 @@ import { Either, Left, Right } from './either'
 
 // interface
 
-export interface Arrow<S, E, Sout> {
-  __val: (_:S) => Promise<Either<E, Sout>>
-  map: <S2out>(f: (_:Sout) => S2out) => Arrow<S, E, S2out>
-  combineA: (f:Arrow<S, E, Sout>) => Arrow<S, E, Sout>
-  leftMap: <E2>(f: (_:E) => E2) => Arrow<S, E2, Sout>
-  flatMap: <E2, S2Out>(f: (_:Sout) => Arrow<S, E | E2, S2Out>) => Arrow<S, E | E2, S2Out>
-  andThen: <E2, S2Out>(_: Arrow<Sout, E2, S2Out>) => Arrow<S, E | E2, S2Out>
-  andThenMerge: <E2, S2Out>(_: Arrow<Sout, E2, S2Out>) => Arrow<S, E | E2, Sout & S2Out>
-  andThenF: <E2, S2Out>(f: (_:Sout) => Promise<Either<E, S2Out>>) => Arrow<S, E | E2, S2Out>
+export interface Arrow<Ctx, E, A> {
+  __val: (_:Ctx) => Promise<Either<E, A>>
+  map: <B>(f: (_:A) => B) => Arrow<Ctx, E, B>
+  leftMap: <E2>(f: (_:E) => E2) => Arrow<Ctx, E2, A>
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>
+  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E | E2, B>) => Arrow<Ctx, E | E2, B>
+  flatMapF: <E2, B>(f: (_:A) => (_:Ctx) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
+  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<Ctx, E | E2, B>
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
+  andThenMerge: <E2, B>(_: Arrow<A, E2, B>) => Arrow<Ctx, E | E2, A & B>
+  combine: (f:Arrow<Ctx, E, A>) => Arrow<Ctx, E, A>
   runP: (
-    context: S
-  ) => Promise<Sout>
-  run: <A, B, C>(
-    context: S,
-    f: (_:Sout) => A,
-    g: (_:E) => B,
-    j: (_?: Error) => C
-  ) => Promise<A | B | C>
+    context: Ctx
+  ) => Promise<A>
+  run: <B, E2, ER>(
+    context: Ctx,
+    f: (_:A) => B,
+    g: (_:E) => E2,
+    j: (_?: Error) => ER
+  ) => Promise<B | E2 | ER>
 }
 
 // implementation
 
-export const Arrow = <S, E, Sout>(__val: (_:S) => Promise<Either<E, Sout>>):Arrow<S, E, Sout> => ({
+export const Arrow = <Ctx, E, A>(__val: (_:Ctx) => Promise<Either<E, A>>):Arrow<Ctx, E, A> => ({
   __val,
-  map: <S2out>(f: (_:Sout) => S2out):Arrow<S, E, S2out> => Arrow<S, E, S2out>((_:S) => __val(_).then(a => a.map(f))),
-  combineA: (f:Arrow<S, E, Sout>):Arrow<S, E, Sout> => Arrow<S, E, Sout>(
-    (c: S) => __val(c)
+  map: <B>(f: (_:A) => B):Arrow<Ctx, E, B> => Arrow<Ctx, E, B>((_:Ctx) => __val(_).then(a => a.map(f))),
+  leftMap: <E2>(f: (_:E) => E2):Arrow<Ctx, E2, A> => Arrow<Ctx, E2, A>((_:Ctx) => __val(_).then(a => a.leftMap(f))),
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>((_:Ctx) => __val(_).then(a => a.biMap(f, g))),
+  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E | E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
+    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f(s2).__val(a)
+    ))
+  ),
+  flatMapF: <E2, B>(f: (_:A) => (_:Ctx) => Promise<Either<E2, B>>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
+    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f(s2)(a)
+    ))
+  ),
+  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
+    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f.__val(s2)
+    ))
+  ),
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
+    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f(s2)
+    ))
+  ),
+  andThenMerge: <E2, B>(f: Arrow<A, E2, B>):Arrow<Ctx, E | E2, A & B> => Arrow<Ctx, E | E2, A & B>(
+    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, A & B>> => eitherCtx2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f.__val(s2).then(eitherCtx => eitherCtx.map(a2 => ({ ...s2, ...a2 })))
+    ))
+  ),
+  combine: (f:Arrow<Ctx, E, A>):Arrow<Ctx, E, A> => Arrow<Ctx, E, A>(
+    (c: Ctx) => __val(c)
       .then(
         (eitherA) => eitherA.match(
           e => f.__val(c),
@@ -36,46 +70,21 @@ export const Arrow = <S, E, Sout>(__val: (_:S) => Promise<Either<E, Sout>>):Arro
         )
       )
   ),
-  leftMap: <E2>(f: (_:E) => E2):Arrow<S, E2, Sout> => Arrow<S, E2, Sout>((_:S) => __val(_).then(a => a.leftMap(f))),
-  flatMap: <E2, S2Out>(f: (_:Sout) => Arrow<S, E | E2, S2Out>):Arrow<S, E | E2, S2Out> => Arrow<S, E | E2, S2Out>(
-    (a: S) => __val(a).then((eitherS2): Promise<Either<E | E2, S2Out>> => eitherS2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2).__val(a)
-    ))
-  ),
-  andThen: <E2, S2Out>(f: Arrow<Sout, E2, S2Out>):Arrow<S, E | E2, S2Out> => Arrow<S, E | E2, S2Out>(
-    (a: S) => __val(a).then((eitherS2): Promise<Either<E | E2, S2Out>> => eitherS2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2)
-    ))
-  ),
-  andThenF: <E2, S2Out>(f: (_:Sout) => Promise<Either<E, S2Out>>):Arrow<S, E | E2, S2Out> => Arrow<S, E | E2, S2Out>(
-    (a: S) => __val(a).then((eitherS2): Promise<Either<E | E2, S2Out>> => eitherS2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2)
-    ))
-  ),
-  andThenMerge: <E2, A>(f: Arrow<Sout, E2, A>):Arrow<S, E | E2, Sout & A> => Arrow<S, E | E2, Sout & A>(
-    (a: S) => __val(a).then((eitherS2): Promise<Either<E | E2, Sout & A>> => eitherS2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2).then(eitherS => eitherS.map(a2 => ({ ...s2, ...a2 })))
-    ))
-  ),
   runP: (
-    context: S
+    context: Ctx
   ) => __val(context).then(
-    (eitherS) => eitherS.match(
+    (eitherCtx) => eitherCtx.match(
       none => { throw none },
       some => some
     )
   ),
-  run: <A, B, C>(
-    context: S,
-    f: (_:Sout) => A,
-    g: (_:E) => B,
-    j: (_?: Error) => C
+  run: <B, E2, ER>(
+    context: Ctx,
+    f: (_:A) => B,
+    g: (_:E) => E2,
+    j: (_?: Error) => ER
   ) => __val(context).then(
-    (eitherS) => eitherS.match(
+    (eitherCtx) => eitherCtx.match(
       none => g(none),
       some => f(some)
     )
@@ -89,9 +98,9 @@ export default Arrow
 
 // constructors
 
-export const resolve = <A>(a: A):Arrow<any, never, A> => Arrow(async (_:any) => Right(a))
+export const resolve = <A, B = any>(a: A):Arrow<B, never, A> => Arrow(async (_:any) => Right(a))
 
-export const reject = <A>(a: A):Arrow<any, A, never> => Arrow(async (_:any) => Left(a))
+export const reject = <A, B = any>(a: A):Arrow<B, A, never> => Arrow(async (_:any) => Left(a))
 
 export const ofContext = <A>():Arrow<A, never, A> => Arrow(async (a:A) => Right(a))
 
@@ -99,13 +108,13 @@ export const fromPromise = <A>(a: Promise<A>):Arrow<any, never, A> => Arrow(asyn
 
 export const fromFailablePromise = <A, E, C = any>(a: Promise<A>):Arrow<C, E, A> => Arrow(async (_:C) => a.then(Right).catch(Left))
 
-export const fromEither = <E, A>(a:Either<E, A>) => Arrow(async (_:any) => a)
+export const fromEither = <E, A, C = any>(a:Either<E, A>):Arrow<C, E, A> => Arrow(async (_:any) => a)
 
-export const fromPEither = <E, A>(a:Promise<Either<E, A>>) => Arrow((_:any) => a)
+export const fromPEither = <E, A, C = any>(a:Promise<Either<E, A>>):Arrow<C, E, A> => Arrow((_:any) => a)
 
-export const fromKP = <S, A>(a:(_:S) => Promise<A>):Arrow<S, never, A> => Arrow((s: S) => a(s).then(Right))
+export const fromKP = <Ctx, A>(a:(_:Ctx) => Promise<A>):Arrow<Ctx, never, A> => Arrow((s: Ctx) => a(s).then(Right))
 
-export const fromFailableKP = <S, E, A>(a:(_:S) => Promise<A>):Arrow<S, E, A> => Arrow((s:S) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const fromFailableKP = <Ctx, E, A>(a:(_:Ctx) => Promise<A>):Arrow<Ctx, E, A> => Arrow((s:Ctx) => a(s).then(Right).catch((e) => Left<E>(e)))
 
 // combinators
 
@@ -115,9 +124,9 @@ export const sequence = <A, B, C>(as: Arrow<A, B, C>[]): Arrow<A, B, C[]> => as.
 
 export const combine = <A, B, C>(...as: Arrow<A, B, C>[]): Arrow<A, B, C> => {
   if (as.length === 1) return as[0]
-  if (as.length === 2) return as[0].combineA(as[1])
+  if (as.length === 2) return as[0].combine(as[1])
   const [a, b, ...aas] = as
-  return combine(a.combineA(b), ...aas)
+  return combine(a.combine(b), ...aas)
 }
 
-export const retry = (n: number) => <A, B, C>(a: Arrow<A, B, C>): Arrow<A, B, C> => (n < 1 ? a : a.combineA(retry(n - 1)(a)))
+export const retry = (n: number) => <A, B, C>(a: Arrow<A, B, C>): Arrow<A, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))

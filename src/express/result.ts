@@ -15,7 +15,9 @@ export enum resultAction {
   redirect = 'redirect',
 }
 
-export interface Result<A extends object | Buffer | string | undefined = any> {
+type body = object | Buffer | string | undefined
+
+export interface Result<A extends body = any> {
   contentType?: string
   body: A
   status: httpStatus
@@ -23,26 +25,35 @@ export interface Result<A extends object | Buffer | string | undefined = any> {
   cookies?: Cookie[]
   clearCookies?: Cookie[]
   action?: [ resultAction, string] | [ resultAction, string, object] | [ resultAction, string, object, (error: any, html: any) => void ]
+  map: <B extends body = any>(f: (_: Result<A>) => Result<B>) => Result<B>
 }
 
 export enum httpStatus {
   OK = 200,
+  Created = 201,
+  NoContent = 204,
   BadRequest = 400,
+  Unauthorised = 401,
+  Forbidden = 403,
   NotFound = 404,
   InternalServerError = 500
 }
 
-export const Result = <A extends object | Buffer | string | undefined = any>(status: httpStatus, body: A, contentType = 'application/json') => ({
+export const Result = <A extends body = any>(status: httpStatus, body: A, contentType = 'application/json'):Result<A> => ({
   status,
   body,
   contentType,
-  map: <B>(f: (_: Result<A>) => Result<A>) => f(Result(status, body, contentType))
+  map: <B extends body = any>(f: (_: Result<A>) => Result<B>) => f(Result(status, body, contentType))
 })
 
-export const OK = <A extends object | Buffer | string | undefined = any>(body: A): Result<A> => Result(httpStatus.OK, body)
-export const BadRequest = <A extends object | Buffer | string | undefined = any>(body: A): Result<A> => Result(httpStatus.BadRequest, body)
-export const InternalServerError = <A extends object | Buffer | string | undefined = any>(body: A): Result<A> => Result(httpStatus.InternalServerError, body)
-export const NotFound = <A extends object | Buffer | string | undefined = any>(body: A): Result<A> => Result(httpStatus.NotFound, body)
+export const OK = <A extends body = any>(body: A): Result<A> => Result(httpStatus.OK, body)
+export const BadRequest = <A extends body = any>(body: A): Result<A> => Result(httpStatus.BadRequest, body)
+export const InternalServerError = <A extends body = any>(body: A): Result<A> => Result(httpStatus.InternalServerError, body)
+export const NotFound = <A extends body = any>(body: A): Result<A> => Result(httpStatus.NotFound, body)
+export const Created = <A extends body = any>(body: A): Result<A> => Result(httpStatus.Created, body)
+export const Unauthorised = <A extends body = any>(body: A): Result<A> => Result(httpStatus.Unauthorised, body)
+export const Forbidden = <A extends body = any>(body: A): Result<A> => Result(httpStatus.Forbidden, body)
+export const NoContent = () => Result(httpStatus.NoContent, undefined)
 
 export const withCookies = <A extends Result>(cookies: Cookie[]) => (a: A) => ({
   ...a,
