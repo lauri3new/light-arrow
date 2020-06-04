@@ -4,6 +4,4 @@ Light arrow is a small library for type safe asynchronous programming in typescr
 
 As well as the TaskEither and Arrow data types this module exposes helper functions for building type safe http apps using the express framework. Please see this section https://lauri3new.github.io/light-arrow-docs/docs/HttpApp of the documentation for more detail.
 
-For functional programmers Arrows are a kind of kleisli[() => Promise, A, B].
-
 Inspiration from the highly recommended book *functional programming in scala* Manning, the scala libraries Cats and http4s amongst others.
