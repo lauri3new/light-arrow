@@ -1,4 +1,4 @@
-import { CookieOptions } from 'express'
+import { CookieOptions, Request, Response } from 'express'
 
 export interface Cookie extends CookieOptions {
   name: string
@@ -13,6 +13,25 @@ export enum resultAction {
   render = 'render',
   sendFile = 'sendFile',
   redirect = 'redirect',
+}
+
+export interface Context {
+  req: Request
+}
+
+export type notFound = { path: string, method: string }
+
+export function isNotFound(a: notFound | any): a is notFound {
+  return (a as notFound).path !== undefined && (a as notFound).method !== undefined
+}
+
+export enum HttpMethods {
+  GET = 'get',
+  POST = 'post',
+  PUT = 'put',
+  DELETE = 'delete',
+  PATCH = 'patch',
+  OPTIONS = 'options'
 }
 
 type body = object | Buffer | string | undefined
@@ -82,3 +101,39 @@ export const withAction = <A extends Result>(action: [ resultAction, string] | [
   ...a,
   action
 })
+
+export const runResponse = (res: Response, result: Result) => {
+  res.set('content-type', result.contentType || 'application/json')
+  const {
+    // eslint-disable-next-line no-shadow
+    headers, cookies, clearCookies, action
+  } = result
+  if (headers) {
+    res.set(headers)
+  }
+  if (cookies) {
+    cookies.forEach((cookie) => {
+      const { name, value, ...options } = cookie
+      res.cookie(name, value, options)
+    })
+  }
+  if (clearCookies) {
+    clearCookies.forEach((clearCookie) => {
+      const { name, ...options } = clearCookie
+      res.clearCookie(name, options)
+    })
+  }
+  if (action) {
+    const [resMethod, firstarg, options, cb] = action
+    if (resMethod === resultAction.redirect) {
+      return res[resMethod](firstarg)
+    }
+    if (resMethod === resultAction.sendFile) {
+      return res[resMethod](firstarg, options)
+    }
+    if (resMethod === resultAction.render) {
+      return res[resMethod](firstarg, options, cb)
+    }
+  }
+  res.status(result.status).send(result.body)
+}
