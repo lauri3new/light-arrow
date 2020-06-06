@@ -51,12 +51,13 @@ export const PromiseEither = <E, A>(__val: Promise<Either<E, A>>): PromiseEither
 
 // constructors
 
-export const reject = <E, A = never>(e: E) => PromiseEither(Promise.resolve(Left<E, A>(e)))
-export const resolve = <A, E = never>(a: A) => PromiseEither(Promise.resolve(Right<A, E>(a)))
-export const fromEither = <E, A>(a: Either<E, A>) => PromiseEither(Promise.resolve(a))
-export const fromPromise = <E, A>(a: Promise<A>) => PromiseEither(a.then(Right).catch(Left))
+export const reject = <E, A = never>(e: E):PromiseEither<E, A> => PromiseEither(Promise.resolve(Left<E, A>(e)))
+export const resolve = <A, E = never>(a: A):PromiseEither<E, A> => PromiseEither(Promise.resolve(Right<A, E>(a)))
+export const fromEither = <E, A>(a: Either<E, A>):PromiseEither<E, A> => PromiseEither(Promise.resolve(a))
+export const fromPromise = <A, E = Error>(a: Promise<A>):PromiseEither<E, A> => PromiseEither(a.then(Right).catch(Left))
+export const kFromAsync = <I, A, E = Error>(a: (_:I) => Promise<A>):PromiseEitherK<I, E, A> => (_: I) => fromPromise(a(_))
 
-export const fromNullable = <A, B>(a: A | null | undefined) => {
+export const fromNullable = <A>(a: A | null | undefined):PromiseEither<null, A> => {
   if (a === null || a === undefined) {
     return reject(null)
   }

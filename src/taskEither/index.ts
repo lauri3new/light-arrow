@@ -91,7 +91,9 @@ export const reject = <E, A = never>(a: E):TaskEither<E, A> => TaskEither(async 
 
 export const fromNullable = <A>(a: A | null | undefined): TaskEither<null, A> => TaskEither(async () => eitherFromNullable(a))
 
-export const fromPromise = <A, E = never>(a: Promise<A>):TaskEither<E, A> => TaskEither(() => a.then(Right).catch(Left))
+export const fromPromise = <A, E = Error>(a: Promise<A>):TaskEither<E, A> => TaskEither(() => a.then(Right).catch(Left))
+
+export const kFromAsync = <I, A, E = Error>(a: (_:I) => Promise<A>):TaskEitherK<I, E, A> => (_: I) => TaskEither(() => a(_).then(Right).catch(Left))
 
 export const fromEither = <E, A>(a:Either<E, A>):TaskEither<E, A> => TaskEither(async () => a)
 
