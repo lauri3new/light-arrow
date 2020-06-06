@@ -91,11 +91,11 @@ export const reject = <E, A = never>(a: E):TaskEither<E, A> => TaskEither(async 
 
 export const fromNullable = <A>(a: A | null | undefined): TaskEither<null, A> => TaskEither(async () => eitherFromNullable(a))
 
-export const fromPromise = <A, E = never>(a: Promise<A>):TaskEither<E, A> => TaskEither(async () => a.then(Right).catch(Left))
+export const fromPromise = <A, E = never>(a: Promise<A>):TaskEither<E, A> => TaskEither(() => a.then(Right).catch(Left))
 
-export const fromEither = <E, A, C = any>(a:Either<E, A>):TaskEither<E, A> => TaskEither(async () => a)
+export const fromEither = <E, A>(a:Either<E, A>):TaskEither<E, A> => TaskEither(async () => a)
 
-export const fromTaskEither = <E, A, C = any>(a:Promise<Either<E, A>>):TaskEither<E, A> => TaskEither(() => a)
+export const fromPromiseEither = <E, A>(a:Promise<Either<E, A>>):TaskEither<E, A> => TaskEither(() => a)
 
 // combinators
 

@@ -91,21 +91,19 @@ export const Arrow = <Ctx, E, A>(__val: (_:Ctx) => Promise<Either<E, A>>):Arrow<
 
 // constructors
 
-export const resolve = <Ctx, A, E = never>(a: A):Arrow<Ctx, E, A> => Arrow(async (_:any) => Right(a))
+export const resolve = <Ctx, A, E = never>(a: A):Arrow<Ctx, E, A> => Arrow(async (_:Ctx) => Right(a))
 
-export const reject = <Ctx, E, A = never>(a: E):Arrow<Ctx, E, A> => Arrow(async (_:any) => Left(a))
+export const reject = <Ctx, E, A = never>(a: E):Arrow<Ctx, E, A> => Arrow(async (_:Ctx) => Left(a))
 
 export const ofContext = <A>():Arrow<A, never, A> => Arrow(async (a:A) => Right(a))
 
 export const fromNullable = <A, B, C = any>(a: A | null | undefined): Arrow<C, null, A> => Arrow(async (_: C) => eitherFromNullable(a))
 
-export const fromPromise = <A>(a: Promise<A>):Arrow<any, never, A> => Arrow(async (_:any) => a.then(Right))
+export const fromPromise = <A, E = never, C = any>(a: Promise<A>):Arrow<C, E, A> => Arrow(async (_:C) => a.then(Right).catch(Left))
 
-export const fromFailablePromise = <A, E, C = any>(a: Promise<A>):Arrow<C, E, A> => Arrow(async (_:C) => a.then(Right).catch(Left))
+export const fromEither = <E, A, C = any>(a:Either<E, A>):Arrow<C, E, A> => Arrow(async (_:C) => a)
 
-export const fromEither = <E, A, C = any>(a:Either<E, A>):Arrow<C, E, A> => Arrow(async (_:any) => a)
-
-export const fromPEither = <E, A, C = any>(a:Promise<Either<E, A>>):Arrow<C, E, A> => Arrow((_:any) => a)
+export const fromPromiseEither = <E, A, C = any>(a:Promise<Either<E, A>>):Arrow<C, E, A> => Arrow((_:C) => a)
 
 export const fromKP = <Ctx, A>(a:(_:Ctx) => Promise<A>):Arrow<Ctx, never, A> => Arrow((s: Ctx) => a(s).then(Right))
 

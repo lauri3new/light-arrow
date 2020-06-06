@@ -4,7 +4,7 @@ import {
   Result, Context, HttpMethods, runResponse, isNotFound, notFound
 } from './result'
 import {
-  TaskEither, reject, resolve
+  TaskEither, reject, TaskEitherK
 } from '../taskEither'
 
 export type httpRoutes<A extends Context = Context> = (ctx: A) => TaskEither<notFound | Result, Result> | TaskEither<notFound, Result>
@@ -32,12 +32,12 @@ export const seal = <A extends Context>(a: httpRoutes<A>, onNotFound: (_: notFou
   )
 }
 
-const matchMethodAndPath = (method: HttpMethods) => (path: string) => <A extends Context>(ctx: A): TaskEither<notFound, A & { req: { params: object } }> => {
+const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(path: string, handler: TaskEitherK<A, never, Result> | TaskEitherK<A, Result, Result>): TaskEitherK<A, notFound | Result, Result> => (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return resolve<A & { req: { params: object } }, notFound>(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+    return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
   }
-  return reject<notFound, A & { req: { params: object } }>({ path: ctx.req.path, method: ctx.req.method })
+  return reject<notFound, never>({ path: ctx.req.path, method: ctx.req.method })
 }
 
 export const get = matchMethodAndPath(HttpMethods.GET)

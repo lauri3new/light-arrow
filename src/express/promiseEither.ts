@@ -4,7 +4,7 @@ import {
   Result, Context, HttpMethods, runResponse, isNotFound, notFound
 } from './result'
 import {
-  PromiseEither, peLeft, peRight
+  PromiseEither, peLeft, PromiseEitherK
 } from '../promiseEither'
 
 export type httpRoutes<A extends Context = Context> = (ctx: A) => PromiseEither<notFound | Result, Result> | PromiseEither<notFound, Result>
@@ -32,12 +32,12 @@ export const seal = <A extends Context>(a: httpRoutes<A>, onNotFound: (_: notFou
   )
 }
 
-const matchMethodAndPath = (method: HttpMethods) => (path: string) => <A extends Context>(ctx: A): PromiseEither<notFound, A & { req: { params: object } }> => {
+const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(path: string, handler: PromiseEitherK<A, never, Result> | PromiseEitherK<A, Result, Result>): PromiseEitherK<A, notFound | Result, Result> => (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return peRight<A & { req: { params: object } }, notFound>(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+    return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
   }
-  return peLeft<notFound, A & { req: { params: object } }>({ path: ctx.req.path, method: ctx.req.method })
+  return peLeft<notFound, never>({ path: ctx.req.path, method: ctx.req.method })
 }
 
 export const get = matchMethodAndPath(HttpMethods.GET)

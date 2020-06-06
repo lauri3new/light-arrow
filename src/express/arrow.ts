@@ -4,7 +4,7 @@ import {
   Result, Context, HttpMethods, runResponse, isNotFound, notFound
 } from './result'
 import {
-  Arrow, reject, resolve
+  Arrow, reject, ArrowK
 } from '../arrow'
 
 export type httpRoutes<Ctx, A extends Context = Context> = (ctx: A) => Arrow<Ctx, notFound | Result, Result> | Arrow<Ctx, notFound, Result>
@@ -33,12 +33,12 @@ export const seal = <Ctx, A extends Context>(a: httpRoutes<Ctx, A>, b: Ctx, onNo
   )
 }
 
-const matchMethodAndPath = (method: HttpMethods) => (path: string) => <Ctx, A extends Context>(ctx: A): Arrow<Ctx, notFound, A & { req: { params: object } }> => {
+const matchMethodAndPath = (method: HttpMethods) => <Ctx, A extends Context>(path: string, handler: ArrowK<Ctx, A, never, Result> | ArrowK<Ctx, A, Result, Result>): ArrowK<Ctx, A, notFound | Result, Result> => (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return resolve<Ctx, A & { req: { params: object } }, notFound>(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+    return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
   }
-  return reject<Ctx, notFound, A & { req: { params: object } }>({ path: ctx.req.path, method: ctx.req.method })
+  return reject<Ctx, notFound, never>({ path: ctx.req.path, method: ctx.req.method })
 }
 
 export const get = matchMethodAndPath(HttpMethods.GET)

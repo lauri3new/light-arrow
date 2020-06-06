@@ -51,16 +51,16 @@ export const PromiseEither = <E, A>(__val: Promise<Either<E, A>>): PromiseEither
 
 // constructors
 
+export const reject = <E, A = never>(e: E) => PromiseEither(Promise.resolve(Left<E, A>(e)))
+export const resolve = <A, E = never>(a: A) => PromiseEither(Promise.resolve(Right<A, E>(a)))
 export const fromEither = <E, A>(a: Either<E, A>) => PromiseEither(Promise.resolve(a))
-
-export const peLeft = <E, A = never>(e: E) => PromiseEither(Promise.resolve(Left<E, A>(e)))
-export const peRight = <A, E = never>(a: A) => PromiseEither(Promise.resolve(Right<A, E>(a)))
+export const fromPromise = <E, A>(a: Promise<A>) => PromiseEither(a.then(Right).catch(Left))
 
 export const fromNullable = <A, B>(a: A | null | undefined) => {
   if (a === null || a === undefined) {
-    return peLeft(null)
+    return reject(null)
   }
-  return peRight<A>(a)
+  return resolve<A>(a)
 }
 
 // combinators
