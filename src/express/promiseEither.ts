@@ -4,7 +4,7 @@ import {
   Result, Context, HttpMethods, runResponse, isNotFound, notFound
 } from './result'
 import {
-  PromiseEither, peLeft, PromiseEitherK
+  PromiseEither, PromiseEitherK, reject
 } from '../promiseEither'
 
 export type httpRoutes<A extends Context = Context> = (ctx: A) => PromiseEither<notFound | Result, Result> | PromiseEither<notFound, Result>
@@ -37,7 +37,7 @@ const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(path: st
   if (_match && ctx.req.method.toLowerCase() === method) {
     return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
   }
-  return peLeft<notFound, never>({ path: ctx.req.path, method: ctx.req.method })
+  return reject<notFound, never>({ path: ctx.req.path, method: ctx.req.method })
 }
 
 export const get = matchMethodAndPath(HttpMethods.GET)
