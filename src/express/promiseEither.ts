@@ -5,7 +5,7 @@ import {
 } from './result'
 import {
   PromiseEither, PromiseEitherK, reject
-} from '../promiseEither'
+} from '../promiseEither/index'
 
 export type httpRoutes<A extends Context = Context> = (ctx: A) => PromiseEither<notFound | Result, Result> | PromiseEither<notFound, Result>
 export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>

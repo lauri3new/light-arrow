@@ -1,5 +1,5 @@
 
-import { Either, Right, Left } from '../either'
+import { Either, Right, Left } from '../either/index'
 
 export interface PromiseEither<E, A> {
   __val: Promise<Either<E, A>>

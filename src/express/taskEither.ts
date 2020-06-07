@@ -5,7 +5,7 @@ import {
 } from './result'
 import {
   TaskEither, reject, TaskEitherK
-} from '../taskEither'
+} from '../taskEither/index'
 
 export type httpRoutes<A extends Context = Context> = (ctx: A) => TaskEither<notFound | Result, Result> | TaskEither<notFound, Result>
 export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>

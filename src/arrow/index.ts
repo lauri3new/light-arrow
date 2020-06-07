@@ -1,6 +1,6 @@
 import {
   Either, Left, Right, fromNullable as eitherFromNullable
-} from '../either'
+} from '../either/index'
 
 // interface
 

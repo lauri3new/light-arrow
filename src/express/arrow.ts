@@ -5,7 +5,7 @@ import {
 } from './result'
 import {
   Arrow, reject, ArrowK
-} from '../arrow'
+} from '../arrow/index'
 
 export type httpRoutes<Ctx, A extends Context = Context> = (ctx: A) => Arrow<Ctx, notFound | Result, Result> | Arrow<Ctx, notFound, Result>
 export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
