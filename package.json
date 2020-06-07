@@ -1,6 +1,6 @@
 {
   "name": "light-arrow",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "type safe asynchronous typescript",
   "repository": "https://github.com/lauri3new/light-arrow",
   "main": "dist/index.js",
