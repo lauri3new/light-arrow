@@ -1,24 +1,26 @@
 import {
-  Either, Left, Right, fromNullable as eitherFromNullable
+  Either, fromNullable as eitherFromNullable, Left, Right
 } from '../either/index'
 
 // interface
 
-export interface Arrow<Ctx, E, A> {
-  __val: (_:Ctx) => Promise<Either<E, A>>
-  map: <B>(f: (_:A) => B) => Arrow<Ctx, E, B>
-  leftMap: <E2>(f: (_:E) => E2) => Arrow<Ctx, E2, A>
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>
-  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E2, B>) => Arrow<Ctx, E | E2, B>
-  flatMapF: <E2, B>(f: (_:A) => (_:Ctx) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
-  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<Ctx, E | E2, B>
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<Ctx, E | E2, B>
-  combine: <E2, B>(f:Arrow<Ctx, E2, B>) => Arrow<Ctx, E2, A | B>
+export interface Arrow<D, E, A, R = D> {
+  __val: (_:D) => Promise<Either<E, A>>
+  map: <B>(f: (_:A) => B) => Arrow<D, E, B, R>
+  leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A, R>
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>
+  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B, R & D2>
+  provideSome: (_:Partial<R>) => Arrow<D, E, A, Omit<D, keyof Partial<R>>>
+  provideAll: (_:R) => Arrow<D, E, A, null>
+  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
+  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B, R>
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
+  combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B, R>
   runP: (
-    context: Ctx
+    context: R
   ) => Promise<A>
   run: <B, E2, ER>(
-    context: Ctx,
+    context: R,
     f: (_:A) => B,
     g: (_:E) => E2,
     j: (_?: Error) => ER
@@ -27,37 +29,39 @@ export interface Arrow<Ctx, E, A> {
 
 // implementation
 
-export const Arrow = <Ctx, E, A>(__val: (_:Ctx) => Promise<Either<E, A>>):Arrow<Ctx, E, A> => ({
+export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A, R> => ({
   __val,
-  map: <B>(f: (_:A) => B):Arrow<Ctx, E, B> => Arrow<Ctx, E, B>((_:Ctx) => __val(_).then(a => a.map(f))),
-  leftMap: <E2>(f: (_:E) => E2):Arrow<Ctx, E2, A> => Arrow<Ctx, E2, A>((_:Ctx) => __val(_).then(a => a.leftMap(f))),
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<Ctx, E2, B>((_:Ctx) => __val(_).then(a => a.biMap(f, g))),
-  flatMap: <E2, B>(f: (_:A) => Arrow<Ctx, E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
-    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+  map: <B>(f: (_:A) => B):Arrow<D, E, B, R> => Arrow<D, E, B, R>((_:D) => __val(_).then(a => a.map(f))),
+  leftMap: <E2>(f: (_:E) => E2):Arrow<D, E2, A, R> => Arrow<D, E2, A, R>((_:D) => __val(_).then(a => a.leftMap(f))),
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>((_:D) => __val(_).then(a => a.biMap(f, g))),
+  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>):Arrow<D & D2, E | E2, B, R> => Arrow<D & D2, E | E2, B, R>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2).__val(a)
     ))
   ),
-  flatMapF: <E2, B>(f: (_:A) => (_:Ctx) => Promise<Either<E2, B>>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
-    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+  provideSome: (ds: Partial<R>) => Arrow((d) => __val({ ...ds, ...d } as D)),
+  provideAll: (ds: R) => Arrow((d) => __val({ ...ds, ...d } as D)),
+  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)(a)
     ))
   ),
-  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
-    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
       e => Promise.resolve(Left(e)),
       s2 => f.__val(s2)
     ))
   ),
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<Ctx, E | E2, B> => Arrow<Ctx, E | E2, B>(
-    (a: Ctx) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
     ))
   ),
-  combine: <E2, B>(f:Arrow<Ctx, E2, B>):Arrow<Ctx, E2, A | B> => Arrow<Ctx, E2, A | B>(
-    (c: Ctx) => __val(c)
+  combine: <E2, B>(f:Arrow<D, E2, B>):Arrow<D, E2, A | B, R> => Arrow<D, E2, A | B, R>(
+    (c: D) => __val(c)
       .then(
         (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
           e => f.__val(c),
@@ -66,19 +70,20 @@ export const Arrow = <Ctx, E, A>(__val: (_:Ctx) => Promise<Either<E, A>>):Arrow<
       )
   ),
   runP: (
-    context: Ctx
-  ) => __val(context).then(
+    context: R
+  ) => __val(context as unknown as D).then(
     (eitherCtx) => eitherCtx.match(
       none => { throw none },
       some => some
     )
   ),
+  // consider running shutdown somewhere or returning deps, e.g. remove db connection
   run: <B, E2, ER>(
-    context: Ctx,
+    context: R,
     f: (_:A) => B,
     g: (_:E) => E2,
     j: (_?: Error) => ER
-  ) => __val(context).then(
+  ) => __val(context as unknown as D).then(
     (eitherCtx) => eitherCtx.match(
       none => g(none),
       some => f(some)
@@ -177,3 +182,37 @@ export function combineK<Ctx, A>(...as: ArrowK<Ctx, A, any, any>[]): ArrowK<Ctx,
 }
 
 export const retryK = (n: number) => <Ctx, C, E, A>(a: ArrowK<Ctx, C, E, A>): ArrowK<Ctx, C, E, A> => (n < 1 ? a : combineK(a, (retryK(n - 1)(a))))
+
+type AccountModel = {
+  query: Promise<string>
+}
+
+type HasAccountModel = {
+  accountModel: AccountModel
+}
+
+type EmailService = {
+  send: Promise<string>
+}
+
+type HasEmailService = {
+  emailService: EmailService
+}
+
+const getAccount = <A extends HasAccountModel>(id: string) => Arrow(({ accountModel }: HasAccountModel) => accountModel.query.then(Right))
+
+const emailAccount = <A extends HasEmailService>(id: string) => Arrow(({ emailService }: HasEmailService) => emailService.send.then(Right))
+
+const x = getAccount('yo').flatMap(() => emailAccount('xhe'))
+
+const y = getAccount('yo')
+  .provideSome({ accountModel: { query: Promise.resolve('123') } }) // benefit?
+  .flatMap(() => emailAccount('xhe'))
+
+// services
+
+const emailClient = {
+  emailClient: {
+    send: 'string'
+  }
+}
