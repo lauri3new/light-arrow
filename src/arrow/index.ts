@@ -6,22 +6,23 @@ import {
 
 // TODO: consider D, A extend Object alternative
 
-export interface Arrow<D, E, A, R = D> {
+export interface Arrow<D, E, A> {
   __val: (_:D) => Promise<Either<E, A>>
-  map: <B>(f: (_:A) => B) => Arrow<D, E, B, R>
-  leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A, R>
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>
-  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B, R & D2>
-  provide: (_:D) => Arrow<D, E, A, {}>
-  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
-  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B, R>
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
-  combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B, R>
+  map: <B>(f: (_:A) => B) => Arrow<D, E, B>
+  leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A>
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
+  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B>
+  provide: (_:D) => Arrow<{}, E, A>
+  modifyDependencies: <E2>(f:(_:D) => Promise<Either<E2, void>>) => Arrow<D, E | E2, A>
+  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B>
   runAsPromise: (
-    context: R
+    context: D
   ) => Promise<A>
   run: <B, E2, ER>(
-    context: R,
+    context: D,
     f: (_:A) => B,
     g: (_:E) => E2,
     j: (_?: Error) => ER
@@ -30,37 +31,37 @@ export interface Arrow<D, E, A, R = D> {
 
 // implementation
 
-export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A, R> => ({
+export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A> => ({
   __val,
-  map: <B>(f: (_:A) => B):Arrow<D, E, B, R> => Arrow<D, E, B, R>((_:D) => __val(_).then(a => a.map(f))),
-  leftMap: <E2>(f: (_:E) => E2):Arrow<D, E2, A, R> => Arrow<D, E2, A, R>((_:D) => __val(_).then(a => a.leftMap(f))),
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>((_:D) => __val(_).then(a => a.biMap(f, g))),
-  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>):Arrow<D & D2, E | E2, B, R> => Arrow<D & D2, E | E2, B, R>(
+  map: <B>(f: (_:A) => B):Arrow<D, E, B> => Arrow<D, E, B>((_:D) => __val(_).then(a => a.map(f))),
+  leftMap: <E2>(f: (_:E) => E2):Arrow<D, E2, A> => Arrow<D, E2, A>((_:D) => __val(_).then(a => a.leftMap(f))),
+  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>((_:D) => __val(_).then(a => a.biMap(f, g))),
+  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>):Arrow<D & D2, E | E2, B> => Arrow<D & D2, E | E2, B>(
     (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2).__val(a)
     ))
   ),
   provide: (ds: D) => Arrow((d) => __val(ds)),
-  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)(a)
     ))
   ),
-  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f.__val(s2)
     ))
   ),
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
     ))
   ),
-  combine: <E2, B>(f:Arrow<D, E2, B>):Arrow<D, E2, A | B, R> => Arrow<D, E2, A | B, R>(
+  combine: <E2, B>(f:Arrow<D, E2, B>):Arrow<D, E2, A | B> => Arrow<D, E2, A | B>(
     (c: D) => __val(c)
       .then(
         (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
@@ -70,21 +71,30 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
       )
   ),
   runAsPromise: (
-    context: R
-  ) => __val(context as unknown as D).then(
+    context: D
+  ) => __val(context).then(
     (eitherD) => eitherD.match(
       none => { throw none },
       some => some
     )
   ),
-  // consider running shutdown somewhere or returning deps, e.g. remove db connection
-  run: <B, E2, ER>(
-    context: R,
+  modifyDependencies: <E2>(f:(_:D) => Promise<Either<E2, void>>) => Arrow<D, E | E2, A>((c: D) => __val(c)
+    .then(
+      (eitherA): Promise<Either<E | E2, A>> => eitherA.match(
+        e => Promise.resolve(Left(e)),
+        a => f(c).then(eitherE => eitherE.match(
+          e => Promise.resolve(Left(e)),
+          () => Promise.resolve(Right(a))
+        ))
+      )
+    )),
+  run: <B, E2, F>(
+    context: D,
     f: (_:A) => B,
     g: (_:E) => E2,
-    j: (_?: Error) => ER
+    j: (_?: Error) => F
   ) => {
-    __val(context as unknown as D).then(
+    __val(context).then(
       (eitherD) => eitherD.match(
         none => g(none),
         some => f(some)
@@ -164,7 +174,7 @@ export const sequenceK = <D, C, E, A>(as: ArrowK<D, C, E, A>[]): ArrowK<D, C, E,
 )
 
 export function combineK <D1, A, B, C, D, E>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>): (d: A) => Arrow<D1, D, C | E>
-export function combineK <D1, A, B, C, D, E, F, G>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>): (d: A) => Arrow<D1,F, C | E | G>
+export function combineK <D1, A, B, C, D, E, F, G>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>): (d: A) => Arrow<D1, F, C | E | G>
 export function combineK <D1, A, B, C, D, E, F, G, H, I>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>): (d: A) => Arrow<D1, H, C | E | G | I>
 export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>, e: ArrowK<D1, A, J, K>): (d: A) => Arrow<D1, J, C | E | G | I | K>
 export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>, e: ArrowK<D1, A, J, K>, f: ArrowK<D1, A, L, M>)
@@ -200,6 +210,18 @@ type AccountModel = {
   query: () => void
 }
 
+type HasDbConnection = {
+  dbConnection: {
+    shutdown: () => Promise<Either<Error, void>>
+  }
+}
+
+const dbConnection = {
+  dbConnection: {
+    shutdown: async () => (Math.random() > 0.5 ? Right(undefined) : Left(new Error('unable to shutdown')))
+  }
+}
+
 type HasAccountModel = {
   accountModel: AccountModel
 }
@@ -212,9 +234,7 @@ type HasEmailService = {
   emailService: EmailService
 }
 
-const getAccount = (id: string) => Arrow(async () => {
-  return Right({ accountModel: { query: () => console.log('account') } })
-})
+const getAccount = <A extends HasDbConnection>(id: string) => Arrow(async (_: A) => Right({ accountModel: { query: () => console.log('account') } }))
 
 const emailAccount = <A extends HasAccountModel>(id: string) => Arrow(async (aa: A) => {
   console.log('emailAccount', aa)
@@ -229,8 +249,14 @@ const y = getAccount('yo')
     console.log('xhe', _)
     return Right(undefined)
   }))
-  .provide({ ok: 123 })
-  .runAsPromise({})
+  .modifyDependencies((d) => d.dbConnection.shutdown())
+  .map((d) => console.log('success', d))
+  .leftMap((e) => console.log('failure', e))
+  .provide({ ok: 123, ...dbConnection })
+
+y.runAsPromise({})
+  .catch(() => {})
+
 
 // services
 
