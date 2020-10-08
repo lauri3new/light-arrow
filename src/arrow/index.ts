@@ -4,7 +4,7 @@ import {
 
 // interface
 
-// no extend object
+// TODO: consider D, A extend Object alternative
 
 export interface Arrow<D, E, A, R = D> {
   __val: (_:D) => Promise<Either<E, A>>
@@ -12,13 +12,12 @@ export interface Arrow<D, E, A, R = D> {
   leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A, R>
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>
   flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B, R & D2>
-  // provideSome: <S extends Partial<R>>(_:S) => Arrow<D, E, A, Omit<D, keyof S>>
-  // provideAll: (_:R) => Arrow<D, E, A, {}>
+  provide: (_:D) => Arrow<D, E, A, {}>
   flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
-  andThen: <D2, E2, B>(_: Arrow<D2, E2, B>) => Arrow<D, E | E2, B, R>
+  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B, R>
   andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
   combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B, R>
-  runP: (
+  runAsPromise: (
     context: R
   ) => Promise<A>
   run: <B, E2, ER>(
@@ -26,7 +25,7 @@ export interface Arrow<D, E, A, R = D> {
     f: (_:A) => B,
     g: (_:E) => E2,
     j: (_?: Error) => ER
-  ) => Promise<B | E2 | ER>
+  ) => void
 }
 
 // implementation
@@ -42,18 +41,17 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
       s2 => f(s2).__val(a)
     ))
   ),
-  // provideSome: <S extends Partial<R>>(ds: S) => Arrow<D, E, A, Omit<D, keyof S>>((d) => __val({ ...ds, ...d })),
-  // provideAll: (ds: R) => Arrow((d) => __val({ ...ds, ...d })),
+  provide: (ds: D) => Arrow((d) => __val(ds)),
   flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)(a)
     ))
   ),
-  andThen: <D2, E2, B>(f: Arrow<D2, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a })
+      s2 => f.__val(s2)
     ))
   ),
   andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
@@ -71,7 +69,7 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
         )
       )
   ),
-  runP: (
+  runAsPromise: (
     context: R
   ) => __val(context as unknown as D).then(
     (eitherD) => eitherD.match(
@@ -85,15 +83,17 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
     f: (_:A) => B,
     g: (_:E) => E2,
     j: (_?: Error) => ER
-  ) => __val(context as unknown as D).then(
-    (eitherD) => eitherD.match(
-      none => g(none),
-      some => f(some)
+  ) => {
+    __val(context as unknown as D).then(
+      (eitherD) => eitherD.match(
+        none => g(none),
+        some => f(some)
+      )
     )
-  )
-    .catch(
-      j
-    )
+      .catch(
+        j
+      )
+  }
 })
 
 // constructors
@@ -212,23 +212,25 @@ type HasEmailService = {
   emailService: EmailService
 }
 
-const getAccount = <A>(id: string) => Arrow(async (aa: A) => {
-  console.log('getAccount', aa)
+const getAccount = (id: string) => Arrow(async () => {
   return Right({ accountModel: { query: () => console.log('account') } })
 })
 
-const emailAccount = <A extends HasEmailService & HasAccountModel>(id: string) => Arrow(async (aa: A) => {
+const emailAccount = <A extends HasAccountModel>(id: string) => Arrow(async (aa: A) => {
   console.log('emailAccount', aa)
-  return Right(aa.emailService.send())
+  return Right(aa.accountModel.query())
 })
 
 const x = getAccount('yo').flatMap(() => emailAccount('xhe'))
 
 const y = getAccount('yo')
   .andThen(emailAccount('xhe'))
-  .runP({
-    
-  })
+  .flatMap(() => Arrow(async (_: { ok: 123 }) => {
+    console.log('xhe', _)
+    return Right(undefined)
+  }))
+  .provide({ ok: 123 })
+  .runAsPromise({})
 
 // services
 
