@@ -26,6 +26,6 @@
     "typescript": "^3.9.3"
   },
   "dependencies": {
-    "path-to-regexp": "^6.1.0"
+    "path-to-regexp": "^6.2.0"
   }
 }

@@ -1,8 +1,10 @@
 import {
-  Either, fromNullable as eitherFromNullable, Left, Right
+  Either, Left, Right
 } from '../either/index'
 
 // interface
+
+// no extend object
 
 export interface Arrow<D, E, A, R = D> {
   __val: (_:D) => Promise<Either<E, A>>
@@ -10,10 +12,10 @@ export interface Arrow<D, E, A, R = D> {
   leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A, R>
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B, R>
   flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B, R & D2>
-  provideSome: (_:Partial<R>) => Arrow<D, E, A, Omit<D, keyof Partial<R>>>
-  provideAll: (_:R) => Arrow<D, E, A, null>
+  // provideSome: <S extends Partial<R>>(_:S) => Arrow<D, E, A, Omit<D, keyof S>>
+  // provideAll: (_:R) => Arrow<D, E, A, {}>
   flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
-  andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B, R>
+  andThen: <D2, E2, B>(_: Arrow<D2, E2, B>) => Arrow<D, E | E2, B, R>
   andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B, R>
   combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B, R>
   runP: (
@@ -40,22 +42,22 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
       s2 => f(s2).__val(a)
     ))
   ),
-  provideSome: (ds: Partial<R>) => Arrow((d) => __val({ ...ds, ...d } as D)),
-  provideAll: (ds: R) => Arrow((d) => __val({ ...ds, ...d } as D)),
+  // provideSome: <S extends Partial<R>>(ds: S) => Arrow<D, E, A, Omit<D, keyof S>>((d) => __val({ ...ds, ...d })),
+  // provideAll: (ds: R) => Arrow((d) => __val({ ...ds, ...d })),
   flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
-    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)(a)
     ))
   ),
-  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
-    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+  andThen: <D2, E2, B>(f: Arrow<D2, E2, B>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
+    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2)
+      s2 => f.__val({ ...a })
     ))
   ),
   andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B, R> => Arrow<D, E | E2, B, R>(
-    (a: D) => __val(a).then((eitherCtx2): Promise<Either<E | E2, B>> => eitherCtx2.match(
+    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
     ))
@@ -72,7 +74,7 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
   runP: (
     context: R
   ) => __val(context as unknown as D).then(
-    (eitherCtx) => eitherCtx.match(
+    (eitherD) => eitherD.match(
       none => { throw none },
       some => some
     )
@@ -84,7 +86,7 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
     g: (_:E) => E2,
     j: (_?: Error) => ER
   ) => __val(context as unknown as D).then(
-    (eitherCtx) => eitherCtx.match(
+    (eitherD) => eitherD.match(
       none => g(none),
       some => f(some)
     )
@@ -96,56 +98,56 @@ export const Arrow = <D, E, A, R = D>(__val: (_:D) => Promise<Either<E, A>>):Arr
 
 // constructors
 
-export const resolve = <Ctx, A, E = never>(a: A):Arrow<Ctx, E, A> => Arrow(async (_:Ctx) => Right(a))
+export const resolve = <A, E = never, D = object>(a: A):Arrow<D, E, A> => Arrow(async (_:D) => Right(a))
 
-export const reject = <Ctx, E, A = never>(a: E):Arrow<Ctx, E, A> => Arrow(async (_:Ctx) => Left(a))
+export const reject = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
 
-export const ofContext = <A>():Arrow<A, never, A> => Arrow(async (a:A) => Right(a))
+// export const fromNullable = <A, B, C = any>(a: A | null | undefined): Arrow<C, null, A> => Arrow(async (_: C) => eitherFromNullable(a))
 
-export const fromNullable = <A, B, C = any>(a: A | null | undefined): Arrow<C, null, A> => Arrow(async (_: C) => eitherFromNullable(a))
+export const fromPromise = <E = never, A = any, D = object>(a: Promise<A>):Arrow<D, E, A> => Arrow(async (_:D) => a.then(Right).catch(Left))
 
-export const fromPromise = <A, E = never, C = any>(a: Promise<A>):Arrow<C, E, A> => Arrow(async (_:C) => a.then(Right).catch(Left))
+export const fromEither = <E, A, D = object>(a:Either<E, A>):Arrow<D, E, A> => Arrow(async (_:any) => a)
 
-export const fromEither = <E, A, C = any>(a:Either<E, A>):Arrow<C, E, A> => Arrow(async (_:C) => a)
+export const fromPromiseEither = <E, A, D = object>(a:Promise<Either<E, A>>):Arrow<D, E, A> => Arrow((_:D) => a)
 
-export const fromPromiseEither = <E, A, C = any>(a:Promise<Either<E, A>>):Arrow<C, E, A> => Arrow((_:C) => a)
+// TODO: rename more friendly
 
-export const fromKP = <Ctx, A>(a:(_:Ctx) => Promise<A>):Arrow<Ctx, never, A> => Arrow((s: Ctx) => a(s).then(Right))
+export const fromKP = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
 
-export const fromFailableKP = <Ctx, E, A>(a:(_:Ctx) => Promise<A>):Arrow<Ctx, E, A> => Arrow((s:Ctx) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const fromFailableKP = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
 // combinators
 
-export const sequence = <A, B, C>(as: Arrow<A, B, C>[]): Arrow<A, B, C[]> => as.reduce(
-  (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<A, B, C[]>(async (ctx: A) => Right<C[]>([]))
+export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.reduce(
+  (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export const combine = <A, B, C>(...as: Arrow<A, B, C>[]): Arrow<A, B, C> => {
+export const combine = <D, B, C>(...as: Arrow<D, B, C>[]): Arrow<D, B, C> => {
   if (as.length === 1) return as[0]
   if (as.length === 2) return as[0].combine(as[1])
   const [a, b, ...aas] = as
   return combine(a.combine(b), ...aas)
 }
 
-export const retry = (n: number) => <A, B, C>(a: Arrow<A, B, C>): Arrow<A, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
+export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
 
 
 // kleisli combinators
 
-export type ArrowK<Ctx, A, B, C> = (a: (A)) => Arrow<Ctx, B, C>
+export type ArrowK<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
 
-export function composeK <Ctx, A, B, C, D, E>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>): (d: A) => Arrow<Ctx, B | D, E>
-export function composeK <Ctx, A, B, C, D, E, F, G>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>): (d: A) => Arrow<Ctx, B | D | F, G>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>): (d: A) => Arrow<Ctx, B | D | F | H, I>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I, J, K>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>): (d: A) => Arrow<Ctx, B | D | F | H | J, K>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>)
-  : (d: A) => Arrow<Ctx, B | D | F | H | J | L, M>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>)
-  : (d: A) => Arrow<Ctx, B | D | F | H | J | L | N, O>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>, h: ArrowK<Ctx, O, P, Q>)
-  : (d: A) => Arrow<Ctx, B | D | F | H | J | L | N | P, Q>
-export function composeK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>, h: ArrowK<Ctx, O, P, Q>, i: ArrowK<Ctx, Q, R, S>)
-  : (d: A) => Arrow<Ctx, B | D | F | H | J | L | N | P | R, S>
+export function composeK <D1, A, B, C, D, E>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
+export function composeK <D1, A, B, C, D, E, F, G>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
+export function composeK <D1, A, B, C, D, E, F, G, H, I>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
+export function composeK <D1, A, B, C, D, E, F, G, H, I, J, K>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
+export function composeK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>)
+  : (d: A) => Arrow<D1, B | D | F | H | J | L, M>
+export function composeK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>)
+  : (d: A) => Arrow<D1, B | D | F | H | J | L | N, O>
+export function composeK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>, h: ArrowK<D1, O, P, Q>)
+  : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P, Q>
+export function composeK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>, h: ArrowK<D1, O, P, Q>, i: ArrowK<D1, Q, R, S>)
+  : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P | R, S>
 export function composeK<A>(...as: any[]) {
   return function (d: A) {
     const [aa, ...aas] = as
@@ -157,34 +159,45 @@ export function composeK<A>(...as: any[]) {
   }
 }
 
-export const sequenceK = <Ctx, C, E, A>(as: ArrowK<Ctx, C, E, A>[]): ArrowK<Ctx, C, E, A[]> => as.reduce(
-  (acc, teaK) => (_: C) => teaK(_).flatMap(a => acc(_).map(aas => [a, ...aas])), (_: C) => Arrow<Ctx, E, A[]>(() => Promise.resolve(Right<A[]>([])))
+export const sequenceK = <D, C, E, A>(as: ArrowK<D, C, E, A>[]): ArrowK<D, C, E, A[]> => as.reduce(
+  (acc, teaK) => (_: C) => teaK(_).flatMap(a => acc(_).map(aas => [a, ...aas])), (_: C) => Arrow<D, E, A[]>(() => Promise.resolve(Right<A[]>([])))
 )
 
-export function combineK <Ctx, A, B, C, D, E>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, A, D, E>): (d: A) => Arrow<Ctx, D, C | E>
-export function combineK <Ctx, A, B, C, D, E, F, G>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, A, D, E>, c: ArrowK<Ctx, A, F, G>): (d: A) => Arrow<Ctx,F, C | E | G>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, A, D, E>, c: ArrowK<Ctx, A, F, G>, d: ArrowK<Ctx, A, H, I>): (d: A) => Arrow<Ctx, H, C | E | G | I>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I, J, K>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, A, D, E>, c: ArrowK<Ctx, A, F, G>, d: ArrowK<Ctx, A, H, I>, e: ArrowK<Ctx, A, J, K>): (d: A) => Arrow<Ctx, J, C | E | G | I | K>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, A, D, E>, c: ArrowK<Ctx, A, F, G>, d: ArrowK<Ctx, A, H, I>, e: ArrowK<Ctx, A, J, K>, f: ArrowK<Ctx, A, L, M>)
-    : (d: A) => Arrow<Ctx, L, C | E | G | I | K | M>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>)
-    : (d: A) => Arrow<Ctx, N, C | E | G | I | K | M | O>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>, h: ArrowK<Ctx, O, P, Q>)
-    : (d: A) => Arrow<Ctx, P, C | E | G | I | K | M | O | Q>
-export function combineK <Ctx, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: ArrowK<Ctx, A, B, C>, b: ArrowK<Ctx, C, D, E>, c: ArrowK<Ctx, E, F, G>, d: ArrowK<Ctx, G, H, I>, e: ArrowK<Ctx, I, J, K>, f: ArrowK<Ctx, K, L, M>, g: ArrowK<Ctx, M, N, O>, h: ArrowK<Ctx, O, P, Q>, i: ArrowK<Ctx, Q, R, S>)
-    : (d: A) => Arrow<Ctx, R, C | E | G | I | K | M | O | Q | S>
-export function combineK <Ctx, A>(...a: ArrowK<Ctx, A, any, any>[]): ArrowK<Ctx, A, any, any>
-export function combineK<Ctx, A>(...as: ArrowK<Ctx, A, any, any>[]): ArrowK<Ctx, A, any, any> {
+export function combineK <D1, A, B, C, D, E>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>): (d: A) => Arrow<D1, D, C | E>
+export function combineK <D1, A, B, C, D, E, F, G>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>): (d: A) => Arrow<D1,F, C | E | G>
+export function combineK <D1, A, B, C, D, E, F, G, H, I>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>): (d: A) => Arrow<D1, H, C | E | G | I>
+export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>, e: ArrowK<D1, A, J, K>): (d: A) => Arrow<D1, J, C | E | G | I | K>
+export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, A, D, E>, c: ArrowK<D1, A, F, G>, d: ArrowK<D1, A, H, I>, e: ArrowK<D1, A, J, K>, f: ArrowK<D1, A, L, M>)
+    : (d: A) => Arrow<D1, L, C | E | G | I | K | M>
+export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>)
+    : (d: A) => Arrow<D1, N, C | E | G | I | K | M | O>
+export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>, h: ArrowK<D1, O, P, Q>)
+    : (d: A) => Arrow<D1, P, C | E | G | I | K | M | O | Q>
+export function combineK <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: ArrowK<D1, A, B, C>, b: ArrowK<D1, C, D, E>, c: ArrowK<D1, E, F, G>, d: ArrowK<D1, G, H, I>, e: ArrowK<D1, I, J, K>, f: ArrowK<D1, K, L, M>, g: ArrowK<D1, M, N, O>, h: ArrowK<D1, O, P, Q>, i: ArrowK<D1, Q, R, S>)
+    : (d: A) => Arrow<D1, R, C | E | G | I | K | M | O | Q | S>
+export function combineK <D, A>(...a: ArrowK<D, A, any, any>[]): ArrowK<D, A, any, any>
+export function combineK<D, A>(...as: ArrowK<D, A, any, any>[]): ArrowK<D, A, any, any> {
   if (as.length === 1) return as[0]
   if (as.length === 2) return (c: A) => as[0](c).combine(as[1](c))
   const [a, b, ...aas] = as
   return combineK(combineK(a, b), ...aas)
 }
 
-export const retryK = (n: number) => <Ctx, C, E, A>(a: ArrowK<Ctx, C, E, A>): ArrowK<Ctx, C, E, A> => (n < 1 ? a : combineK(a, (retryK(n - 1)(a))))
+export const retryK = (n: number) => <D, C, E, A>(a: ArrowK<D, C, E, A>): ArrowK<D, C, E, A> => (n < 1 ? a : combineK(a, (retryK(n - 1)(a))))
+
+// type aliases
+
+export type ArTaskEither<E, A, D = object> = Arrow<D, E, A>
+
+export type ArTask<A, D = object> = ArTaskEither<D, A>
+
+// examples
+
+const a = Arrow(async (b: { c: string }) => Right(b))
+  .flatMap(() => Arrow(async (b: { b: number }) => Right(b)))
 
 type AccountModel = {
-  query: Promise<string>
+  query: () => void
 }
 
 type HasAccountModel = {
@@ -192,22 +205,30 @@ type HasAccountModel = {
 }
 
 type EmailService = {
-  send: Promise<string>
+  send: () => void
 }
 
 type HasEmailService = {
   emailService: EmailService
 }
 
-const getAccount = <A extends HasAccountModel>(id: string) => Arrow(({ accountModel }: HasAccountModel) => accountModel.query.then(Right))
+const getAccount = <A>(id: string) => Arrow(async (aa: A) => {
+  console.log('getAccount', aa)
+  return Right({ accountModel: { query: () => console.log('account') } })
+})
 
-const emailAccount = <A extends HasEmailService>(id: string) => Arrow(({ emailService }: HasEmailService) => emailService.send.then(Right))
+const emailAccount = <A extends HasEmailService & HasAccountModel>(id: string) => Arrow(async (aa: A) => {
+  console.log('emailAccount', aa)
+  return Right(aa.emailService.send())
+})
 
 const x = getAccount('yo').flatMap(() => emailAccount('xhe'))
 
 const y = getAccount('yo')
-  .provideSome({ accountModel: { query: Promise.resolve('123') } }) // benefit?
-  .flatMap(() => emailAccount('xhe'))
+  .andThen(emailAccount('xhe'))
+  .runP({
+    
+  })
 
 // services
 
