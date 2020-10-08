@@ -4,7 +4,7 @@
 
 // interface
 
-export interface ArrowO {}
+export interface _ArrowO {}
 
 // all extend object
 
