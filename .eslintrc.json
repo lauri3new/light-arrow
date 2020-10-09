@@ -30,6 +30,7 @@
         "default-case": "off",
         "consistent-return": "off",
         "no-restricted-syntax": "off",
-        "comma-dangle": ["error", "never"]
+        "comma-dangle": ["error", "never"],
+        "no-shadow": "off"
     }
 }

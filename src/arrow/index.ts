@@ -108,6 +108,10 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
 
 // constructors
 
+export const draw = <D, D2, E, A>(f:(_:D) => Arrow<D2, E, A>): Arrow<D & D2, E, A> => Arrow<D & D2, E, A>(
+  (a: D & D2) => f(a).__val(a)
+)
+
 export const resolve = <A, E = never, D = object>(a: A):Arrow<D, E, A> => Arrow(async (_:D) => Right(a))
 
 export const reject = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
@@ -200,68 +204,3 @@ export const retryK = (n: number) => <D, C, E, A>(a: ArrowK<D, C, E, A>): ArrowK
 export type ArTaskEither<E, A, D = object> = Arrow<D, E, A>
 
 export type ArTask<A, D = object> = ArTaskEither<D, A>
-
-// examples
-
-const a = Arrow(async (b: { c: string }) => Right(b))
-  .flatMap(() => Arrow(async (b: { b: number }) => Right(b)))
-
-type AccountModel = {
-  query: () => void
-}
-
-type HasDbConnection = {
-  dbConnection: {
-    shutdown: () => Promise<Either<Error, void>>
-  }
-}
-
-const dbConnection = {
-  dbConnection: {
-    shutdown: async () => (Math.random() > 0.5 ? Right(undefined) : Left(new Error('unable to shutdown')))
-  }
-}
-
-type HasAccountModel = {
-  accountModel: AccountModel
-}
-
-type EmailService = {
-  send: () => void
-}
-
-type HasEmailService = {
-  emailService: EmailService
-}
-
-const getAccount = <A extends HasDbConnection>(id: string) => Arrow(async (_: A) => Right({ accountModel: { query: () => console.log('account') } }))
-
-const emailAccount = <A extends HasAccountModel>(id: string) => Arrow(async (aa: A) => {
-  console.log('emailAccount', aa)
-  return Right(aa.accountModel.query())
-})
-
-const x = getAccount('yo').flatMap(() => emailAccount('xhe'))
-
-const y = getAccount('yo')
-  .andThen(emailAccount('xhe'))
-  .flatMap(() => Arrow(async (_: { ok: 123 }) => {
-    console.log('xhe', _)
-    return Right(undefined)
-  }))
-  .modifyDependencies((d) => d.dbConnection.shutdown())
-  .map((d) => console.log('success', d))
-  .leftMap((e) => console.log('failure', e))
-  .provide({ ok: 123, ...dbConnection })
-
-y.runAsPromise({})
-  .catch(() => {})
-
-
-// services
-
-const emailClient = {
-  emailClient: {
-    send: 'string'
-  }
-}
