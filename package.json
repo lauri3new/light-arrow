@@ -26,6 +26,7 @@
     "typescript": "^3.9.3"
   },
   "dependencies": {
+    "express": "^4.17.1",
     "path-to-regexp": "^6.2.0"
   }
 }

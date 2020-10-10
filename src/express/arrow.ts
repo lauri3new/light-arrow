@@ -1,47 +1,53 @@
 import { Express } from 'express'
 import { match } from 'path-to-regexp'
 import {
-  Arrow, Draw, reject
-} from '../arrow/index'
+  Arrow, draw, reject, resolve
+} from '../Arrow/index'
 import {
-  Context, HttpMethods, notFound, Result, runResponse
+  Context, HttpMethods, isNotFound, notFound, Result, runResponse
 } from './result'
 
-export type httpRoutes<Ctx, A extends Context = Context> = (ctx: A) => Arrow<Ctx, notFound | Result, Result> | Arrow<Ctx, notFound, Result>
+export type httpRoutes<A extends Context = Context> = Arrow<A, notFound | Result, Result> | Arrow<A, notFound, Result>
 export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
 
-interface hasCapabilities<A> {
-  capabilities: A
-}
+// interface hasCapabilities<A> {
+//   capabilities: A
+// }
 
-export const bindApp = <A>(httpApp: httpApp<hasCapabilities<A> & Context>, capabilities: A) => (expressApp: Express) => {
-  expressApp.use('*', (req, res) => httpApp({ req, capabilities }).then((result) => {
+export const bindApp = <A>(httpApp: httpApp<A & Context>, capabilities: A) => (expressApp: Express) => {
+  expressApp.use('*', (req, res) => httpApp({ req, ...capabilities }).then((result) => {
     runResponse(res, result)
   }))
 }
 
-// export const seal = <Ctx, A extends Context>(
-//   a: httpRoutes<Ctx, A>, b: Ctx, onNotFound: (_: notFound) => Result, onError: (e?: Error) => Result
-// ): httpApp<A> => (ctx: A) => {
-//     const _r = a(ctx) as Arrow<Ctx, notFound | Result, Result>
-//     return _r.run(
-//       b,
-//       r => r,
-//       f => {
-//         if (isNotFound(f)) return onNotFound(f)
-//         return f
-//       },
-//       onError
-//     )
-//   }
+export const seal = <A extends Context>(a: httpRoutes<A>, onNotFound: (_: notFound) => Result, onError: (e?: Error) => Result): httpApp<A> => (ctx: A) => a.runAsPromise(ctx).catch((b) => {
+  if (isNotFound(b)) return onNotFound(b)
+  // TODO: isResult
+  return onError(b)
+})
 
-const matchMethodAndPath = (method: HttpMethods) => <Ctx, A extends Context>(path: string, handler: Draw<Ctx, A, never, Result> | Draw<Ctx, A, Result, Result>): Draw<Ctx, A, notFound | Result, Result> => (ctx: A) => {
+const matchMethodAndPathHandler = (method: HttpMethods) => <A extends Context>(path: string, handler: Arrow<A, never, Result> | Arrow<A, Result, Result>): Arrow<A, notFound | Result, Result> => draw<A, A, notFound | Result, Result>((ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+    return handler
   }
-  return reject<notFound, never, Ctx>({ path: ctx.req.path, method: ctx.req.method })
-}
+  return reject<notFound, never, A>({ path: ctx.req.path, method: ctx.req.method })
+})
+
+export const getHandler = matchMethodAndPathHandler(HttpMethods.GET)
+export const postHandler = matchMethodAndPathHandler(HttpMethods.POST)
+export const patchHandler = matchMethodAndPathHandler(HttpMethods.PATCH)
+export const putHandler = matchMethodAndPathHandler(HttpMethods.PUT)
+export const delHandler = matchMethodAndPathHandler(HttpMethods.DELETE)
+export const optionsHandler = matchMethodAndPathHandler(HttpMethods.OPTIONS)
+
+const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(path: string): Arrow<A, notFound | Result, A & { req: { params: object } }> => draw<A, A, notFound | Result, A & { req: { params: object } }>((ctx: A) => {
+  const _match = match(path)(ctx.req.baseUrl)
+  if (_match && ctx.req.method.toLowerCase() === method) {
+    return resolve<A & { req: { params: object } }, never, A>(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+  }
+  return reject<notFound, never, A>({ path: ctx.req.path, method: ctx.req.method })
+})
 
 export const get = matchMethodAndPath(HttpMethods.GET)
 export const post = matchMethodAndPath(HttpMethods.POST)

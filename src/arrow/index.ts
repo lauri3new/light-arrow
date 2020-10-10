@@ -15,6 +15,7 @@ export interface Arrow<D, E, A> {
   flatMapFunction: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
   andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
   andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  merge: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E | E2, A & B>
   combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B>
   runAsPromise: (
     context: D
@@ -57,6 +58,15 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
+    ))
+  ),
+  merge: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E | E2, A & B>(
+    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B>> => eitherD2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f.__val(a).then((eitherB): Promise<Either<E | E2, A & B>> => eitherB.match(
+        e => Promise.resolve(Left(e)),
+        s3 => Promise.resolve(Right({ ...s2, ...s3 }))
+      ))
     ))
   ),
   combine: <E2, B>(f:Arrow<D, E2, B>):Arrow<D, E2, A | B> => Arrow<D, E2, A | B>(
@@ -124,9 +134,9 @@ export const fromEither = <E, A, D = object>(a:Either<E, A>):Arrow<D, E, A> => A
 
 // TODO: rename more friendly
 
-export const fromDrawPromise = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
+export const drawPromise = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
 
-export const fromFailableDrawPromise = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const drawFailablePromise = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
 // combinators
 
@@ -141,59 +151,84 @@ export const combine = <D, B, C>(...as: Arrow<D, B, C>[]): Arrow<D, B, C> => {
   return combine(a.combine(b), ...aas)
 }
 
-export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
-
-// kleisli combinators
-
 export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
 
-export function composeDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
-export function composeDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>)
+export function merge <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
+export function merge <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
+export function merge <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
+export function merge <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
+export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>)
   : (d: A) => Arrow<D1, B | D | F | H | J | L, M>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
+export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
   : (d: A) => Arrow<D1, B | D | F | H | J | L | N, O>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
+export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P, Q>
-export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
+export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P | R, S>
-export function composeDraw<A>(...as: any[]) {
+export function merge<A>(...as: any[]) {
   return function (d: A) {
     const [aa, ...aas] = as
     if (aas && aas.length === 0) return aa(d)
     return aa(d).flatMap(
       // @ts-ignore
-      composeDraw(...aas)
+      merge(...aas)
     )
   }
 }
 
-export const sequenceDraw = <D, C, E, A>(as: Draw<D, C, E, A>[]): Draw<D, C, E, A[]> => as.reduce(
-  (acc, teaK) => (_: C) => teaK(_).flatMap(a => acc(_).map(aas => [a, ...aas])), (_: C) => Arrow<D, E, A[]>(() => Promise.resolve(Right<A[]>([])))
-)
+export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
 
-export function combineDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>): (d: A) => Arrow<D1, D, C | E>
-export function combineDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>): (d: A) => Arrow<D1, F, C | E | G>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>): (d: A) => Arrow<D1, H, C | E | G | I>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>): (d: A) => Arrow<D1, J, C | E | G | I | K>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>, f: Draw<D1, A, L, M>)
-    : (d: A) => Arrow<D1, L, C | E | G | I | K | M>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
-    : (d: A) => Arrow<D1, N, C | E | G | I | K | M | O>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
-    : (d: A) => Arrow<D1, P, C | E | G | I | K | M | O | Q>
-export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
-    : (d: A) => Arrow<D1, R, C | E | G | I | K | M | O | Q | S>
-export function combineDraw <D, A>(...a: Draw<D, A, any, any>[]): Draw<D, A, any, any>
-export function combineDraw<D, A>(...as: Draw<D, A, any, any>[]): Draw<D, A, any, any> {
-  if (as.length === 1) return as[0]
-  if (as.length === 2) return (c: A) => as[0](c).combine(as[1](c))
-  const [a, b, ...aas] = as
-  return combineDraw(combineDraw(a, b), ...aas)
-}
+// kleisli combinators
 
-export const retryDraw = (n: number) => <D, C, E, A>(a: Draw<D, C, E, A>): Draw<D, C, E, A> => (n < 1 ? a : combineDraw(a, (retryDraw(n - 1)(a))))
+// export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
+
+// export function composeDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
+// export function composeDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>)
+//   : (d: A) => Arrow<D1, B | D | F | H | J | L, M>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
+//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N, O>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
+//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P, Q>
+// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
+//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P | R, S>
+// export function composeDraw<A>(...as: any[]) {
+//   return function (d: A) {
+//     const [aa, ...aas] = as
+//     if (aas && aas.length === 0) return aa(d)
+//     return aa(d).flatMap(
+//       // @ts-ignore
+//       composeDraw(...aas)
+//     )
+//   }
+// }
+
+// export const sequenceDraw = <D, C, E, A>(as: Draw<D, C, E, A>[]): Draw<D, C, E, A[]> => as.reduce(
+//   (acc, teaK) => (_: C) => teaK(_).flatMap(a => acc(_).map(aas => [a, ...aas])), (_: C) => Arrow<D, E, A[]>(() => Promise.resolve(Right<A[]>([])))
+// )
+
+// export function combineDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>): (d: A) => Arrow<D1, D, C | E>
+// export function combineDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>): (d: A) => Arrow<D1, F, C | E | G>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>): (d: A) => Arrow<D1, H, C | E | G | I>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>): (d: A) => Arrow<D1, J, C | E | G | I | K>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>, f: Draw<D1, A, L, M>)
+//     : (d: A) => Arrow<D1, L, C | E | G | I | K | M>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
+//     : (d: A) => Arrow<D1, N, C | E | G | I | K | M | O>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
+//     : (d: A) => Arrow<D1, P, C | E | G | I | K | M | O | Q>
+// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
+//     : (d: A) => Arrow<D1, R, C | E | G | I | K | M | O | Q | S>
+// export function combineDraw <D, A>(...a: Draw<D, A, any, any>[]): Draw<D, A, any, any>
+// export function combineDraw<D, A>(...as: Draw<D, A, any, any>[]): Draw<D, A, any, any> {
+//   if (as.length === 1) return as[0]
+//   if (as.length === 2) return (c: A) => as[0](c).combine(as[1](c))
+//   const [a, b, ...aas] = as
+//   return combineDraw(combineDraw(a, b), ...aas)
+// }
+
+// export const retryDraw = (n: number) => <D, C, E, A>(a: Draw<D, C, E, A>): Draw<D, C, E, A> => (n < 1 ? a : combineDraw(a, (retryDraw(n - 1)(a))))
 
 // type aliases
