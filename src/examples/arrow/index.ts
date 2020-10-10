@@ -1,4 +1,4 @@
-import { Arrow, draw } from '../../arrow'
+import { Arrow, draw, provideSome } from '../../arrow'
 import { Right } from '../../either'
 
 // capabilities
@@ -49,10 +49,12 @@ const userService = {
   ) => draw(({ userModel }: HasUserModel & HasLogger) => userModel.save(name))
 }
 
-const a = userService.create('jim')
+const a = provideSome({ userModel })(userService.create('jim')).modifyDependencies(async (b) => {
+  console.log('modify', b)
+  return Right(b)
+})
 
 a.provide({
-  userModel,
   logger,
   dbClient
 })

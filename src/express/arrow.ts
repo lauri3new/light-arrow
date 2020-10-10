@@ -1,7 +1,7 @@
 import { Express } from 'express'
 import { match } from 'path-to-regexp'
 import {
-  Arrow, ArrowK, reject
+  Arrow, Draw, reject
 } from '../arrow/index'
 import {
   Context, HttpMethods, notFound, Result, runResponse
@@ -35,7 +35,7 @@ export const bindApp = <A>(httpApp: httpApp<hasCapabilities<A> & Context>, capab
 //     )
 //   }
 
-const matchMethodAndPath = (method: HttpMethods) => <Ctx, A extends Context>(path: string, handler: ArrowK<Ctx, A, never, Result> | ArrowK<Ctx, A, Result, Result>): ArrowK<Ctx, A, notFound | Result, Result> => (ctx: A) => {
+const matchMethodAndPath = (method: HttpMethods) => <Ctx, A extends Context>(path: string, handler: Draw<Ctx, A, never, Result> | Draw<Ctx, A, Result, Result>): Draw<Ctx, A, notFound | Result, Result> => (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
     return handler(({ ...ctx, req: { ...ctx.req, params: _match.params } }))

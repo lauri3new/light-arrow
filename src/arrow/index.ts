@@ -11,10 +11,10 @@ export interface Arrow<D, E, A> {
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
   flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B>
   provide: (_:D) => Arrow<void, E, A>
-  modifyDependencies: <E2>(f:(_:D) => Promise<Either<E2, void>>) => Arrow<D, E | E2, A>
-  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  modifyDependencies: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>
+  flatMapFunction: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
   andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
   combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B>
   runAsPromise: (
     context: D
@@ -41,7 +41,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
     ))
   ),
   provide: (ds: D) => Arrow((d) => __val(ds)),
-  flatMapF: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+  flatMapFunction: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)(a)
@@ -53,7 +53,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       s2 => f.__val(s2)
     ))
   ),
-  andThenF: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
@@ -76,7 +76,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       some => some
     )
   ),
-  modifyDependencies: <E2>(f:(_:D) => Promise<Either<E2, void>>) => Arrow<D, E | E2, A>((c: D) => __val(c)
+  modifyDependencies: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>((c: D) => __val(c)
     .then(
       (eitherA): Promise<Either<E | E2, A>> => eitherA.match(
         e => Promise.resolve(Left(e)),
@@ -110,17 +110,17 @@ export const draw = <D, D2, E, A>(f:(_:D) => Arrow<D2, E, A>): Arrow<D & D2, E, 
   (a: D & D2) => f(a).__val(a)
 )
 
+export const provideSome = <D>(d: D) => <D2, E, A>(a: Arrow<D & D2, E, A>): Arrow<D2, E, A> => Arrow<D2, E, A>(
+  (ds: D2) => a.__val({ ...ds, ...d })
+)
+
 export const resolve = <A, E = never, D = object>(a: A):Arrow<D, E, A> => Arrow(async (_:D) => Right(a))
 
 export const reject = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
 
 // export const fromNullable = <A, B, C = any>(a: A | null | undefined): Arrow<C, null, A> => Arrow(async (_: C) => eitherFromNullable(a))
 
-export const fromPromise = <E = never, A = any, D = object>(a: Promise<A>):Arrow<D, E, A> => Arrow(async (_:D) => a.then(Right).catch(Left))
-
 export const fromEither = <E, A, D = object>(a:Either<E, A>):Arrow<D, E, A> => Arrow(async (_:any) => a)
-
-export const fromPromiseEither = <E, A, D = object>(a:Promise<Either<E, A>>):Arrow<D, E, A> => Arrow((_:D) => a)
 
 // TODO: rename more friendly
 
@@ -194,6 +194,6 @@ export function combineDraw<D, A>(...as: Draw<D, A, any, any>[]): Draw<D, A, any
   return combineDraw(combineDraw(a, b), ...aas)
 }
 
-export const retryDraw = (n: number) => <D, C, E, A>(a: Draw<D, C, E, A>): Draw<D, C, E, A> => (n < 1 ? a : combineDraw(a, (retryK(n - 1)(a))))
+export const retryDraw = (n: number) => <D, C, E, A>(a: Draw<D, C, E, A>): Draw<D, C, E, A> => (n < 1 ? a : combineDraw(a, (retryDraw(n - 1)(a))))
 
 // type aliases
