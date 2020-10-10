@@ -56,7 +56,7 @@ a.provide({
   logger,
   dbClient
 })
-  .runAsPromise({})
+  .runAsPromise()
   .then((a) => console.log('success', a))
   .catch((e) => console.log(e))
 
