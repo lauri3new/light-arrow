@@ -122,6 +122,11 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
 
 // helpers
 
+// type aliases and constructors
+
+export type TaskEither<E, A> = Arrow<{}, E, A>
+export type Task<A> = Arrow<{}, never, A>
+
 // constructors
 
 export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
@@ -130,21 +135,25 @@ export const draw = <D, D2, E, A>(f:(_:D) => Arrow<D2, E, A>): Arrow<D & D2, E, 
   (a: D & D2) => f(a).__val(a)
 )
 
-export const provideSome = <D>(d: D) => <D2, E, A>(a: Arrow<D & D2, E, A>): Arrow<D2, E, A> => Arrow<D2, E, A>(
-  (ds: D2) => a.__val({ ...ds, ...d })
-)
-
-export const resolve = <A, E = never, D = object>(a: A):Arrow<D, E, A> => Arrow(async (_:D) => Right(a))
+export const resolve = <A>(a: A):Task<A> => Arrow(async () => Right(a))
 
 export const reject = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
 
-// export const fromNullable = <A, B, C = any>(a: A | null | undefined): Arrow<C, null, A> => Arrow(async (_: C) => eitherFromNullable(a))
+export const fromNullable = <A>(
+  a: A | null | undefined
+): TaskEither<null, A> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
 
-export const fromEither = <E, A, D = object>(a:Either<E, A>):Arrow<D, E, A> => Arrow(async (_:any) => a)
+export const fromEither = <E, A>(a:Either<E, A>):TaskEither<E, A> => Arrow(async (_:{}) => a)
 
 export const drawAsync = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
 
 export const drawFailableAsync = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
+
+// D
+
+export const provideSome = <D>(d: D) => <D2, E, A>(a: Arrow<D & D2, E, A>): Arrow<D2, E, A> => Arrow<D2, E, A>(
+  (ds: D2) => a.__val({ ...ds, ...d })
+)
 
 // combinators
 
@@ -152,17 +161,17 @@ export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.
   (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export function merge <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E1 | E2, A1 | A2>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, A1 | A2 | A3>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, A1 | A2 | A3 | A4>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, A1 | A2 | A3 | A4 | A5>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E1 | E2, A1 | A2>
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, A1 | A2 | A3>
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, A1 | A2 | A3 | A4>
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, A1 | A2 | A3 | A4 | A5>
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E1 | E2 | E3 | E4 | E5 | E6, A1 | A2 | A3 | A4 | A5 | A6>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E1 | E2 | E3 | E4 | E5 | E6 | E7, A1 | A2 | A3 | A4 | A5 | A6 | A7>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object, D8, E8, A8 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8>
-export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
+export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object, D8, E8, A8 extends object, D9, E9, A9 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8 | A9>
 export function merge(...as: any[]) {
   if (as.length === 1) return as[0]
@@ -193,15 +202,3 @@ export function combine(...as: any[]) {
 }
 
 export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
-
-const a = draw((_: { ok: string }) => resolve(5)).provide({ ok: 'sef' })
-const b = draw((_: { hello: number }) => resolve({ ok: 5 }))
-
-const c = a.merge(b)
-
-c.runAsPromise({ hello: 6 })
-  .then(a => {
-    console.log('hello', a)
-  })
-
-const d = merge(a, b)

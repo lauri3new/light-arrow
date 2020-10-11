@@ -1,4 +1,4 @@
-import { Arrow, draw } from '../../../arrow'
+import { Arrow, combine, draw } from '../../../arrow'
 import { Right } from '../../../either'
 import { get, getHandler } from '../../../express/arrow'
 import { BadRequest, Context, OK } from '../../../express/result'
@@ -15,14 +15,12 @@ export const getUser = getHandler('/user', ok.flatMap(
 
 const getXhe = get('/xhe').map(() => OK({ xhe: 'xhe' }))
 
+const router = combine(
+  getUser,
+  getXhe
+)
+
 export const getUserA = get('/usertwo').merge(ok).biMap(
   (a) => BadRequest({ doh: 'mate' }),
   (e) => OK({ allo: 'mate' })
 ).combine(getXhe)
-
-// .merge(ok).flatMap(
-//   (v) => draw((a: Context & HasUserService) => a.userService.get('uo'))
-// ).biMap(
-//   () => BadRequest({ doh: 'mate' }),
-//   () => OK({ allo: 'mate' })
-// )
