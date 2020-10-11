@@ -22,7 +22,7 @@ export interface Context {
 export type notFound = { path: string, method: string }
 
 export function isNotFound(a: notFound | any): a is notFound {
-  return (a as notFound).path !== undefined && (a as notFound).method !== undefined
+  return a?.path !== undefined && a?.method !== undefined
 }
 
 export enum HttpMethods {
@@ -39,12 +39,16 @@ type body = object | Buffer | string | undefined
 export interface Result<A extends body = any> {
   contentType?: string
   body: A
-  status: httpStatus
+  status: httpStatus | number
   headers?: { [key: string]: string }
   cookies?: Cookie[]
   clearCookies?: Cookie[]
   action?: [ resultAction, string] | [ resultAction, string, object] | [ resultAction, string, object, (error: any, html: any) => void ]
-  map: <B extends body = any>(f: (_: Result<A>) => Result<B>) => Result<B>
+  map?: <B extends body = any>(f: (_: Result<A>) => Result<B>) => Result<B>
+}
+
+export function isResult(a: Result | any): a is Result {
+  return ['undefined', 'object', 'string'].includes(a?.body) && typeof a?.status === 'number'
 }
 
 export enum httpStatus {
@@ -58,7 +62,7 @@ export enum httpStatus {
   InternalServerError = 500
 }
 
-export const Result = <A extends body = any>(status: httpStatus, body: A, contentType = 'application/json'):Result<A> => ({
+export const Result = <A extends body = any>(status: httpStatus | number, body: A, contentType = 'application/json'):Result<A> => ({
   status,
   body,
   contentType,
