@@ -1,6 +1,6 @@
 import { Arrow, combine } from '../../../arrow'
 import { Right } from '../../../either'
-import { get } from '../../../express/index'
+import { get } from '../../../express/httpApp'
 import { BadRequest, Context, OK } from '../../../express/result'
 import { authMiddleware } from './middleware'
 

@@ -1,5 +1,5 @@
 import express from 'express'
-import { bindApp, seal } from '../../../express/index'
+import { bindApp, seal } from '../../../express/httpApp'
 import { InternalServerError, NotFound } from '../../../express/result'
 import { capabilities } from './capabilities'
 import { getUserA } from './routes'
