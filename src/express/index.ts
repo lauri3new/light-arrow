@@ -3,7 +3,7 @@ import { match } from 'path-to-regexp'
 import {
   Arrow
 } from '../Arrow/index'
-import { Either, Left, Right } from '../either'
+import { Left, Right } from '../either'
 import {
   Context, HttpMethods, isNotFound, isResult, notFound, Result, runResponse
 } from './result'
@@ -36,43 +36,6 @@ export const seal = <A extends Context>(
       return onError(b)
     })
 
-const matchMethodAndPathHandler = (method: HttpMethods) => <A extends Context, B extends object = object>(
-  path: string,
-  handler: (_: A & { params: B }) => Promise<Either<Result, Result>>
-): Arrow<A, notFound | Result, Result> => Arrow<A, notFound | Result, Result>(async (ctx: A) => {
-  const _match = match(path)(ctx.req.baseUrl)
-  if (_match && ctx.req.method.toLowerCase() === method) {
-    return handler({ ...ctx, params: _match.params as B })
-  }
-  return Left({ path: ctx.req.path, method: ctx.req.method })
-})
-export const getHandler = matchMethodAndPathHandler(HttpMethods.GET)
-export const postHandler = matchMethodAndPathHandler(HttpMethods.POST)
-export const patchHandler = matchMethodAndPathHandler(HttpMethods.PATCH)
-export const putHandler = matchMethodAndPathHandler(HttpMethods.PUT)
-export const delHandler = matchMethodAndPathHandler(HttpMethods.DELETE)
-export const optionsHandler = matchMethodAndPathHandler(HttpMethods.OPTIONS)
-
-const matchMethodAndPathHandlerMw = (method: HttpMethods) => <D extends Context, A extends D, B extends object = object>(
-  path: string,
-  middleware: Middleware<D, A>,
-  handler: (_: A & { params: B }) => Promise<Either<Result, Result>>
-): Arrow<D, notFound | Result, Result> => middleware.andThenFunction<notFound | Result, Result>((async (ctx: A) => {
-  const _match = match(path)(ctx.req.baseUrl)
-  if (_match && ctx.req.method.toLowerCase() === method) {
-    return handler({ ...ctx, params: _match.params as B })
-  }
-  return Left({ path: ctx.req.path, method: ctx.req.method })
-}))
-
-
-export const getHandlerMw = matchMethodAndPathHandler(HttpMethods.GET)
-export const postHandlerMw = matchMethodAndPathHandler(HttpMethods.POST)
-export const patchHandlerMw = matchMethodAndPathHandler(HttpMethods.PATCH)
-export const putHandlerMw = matchMethodAndPathHandler(HttpMethods.PUT)
-export const delHandlerMw = matchMethodAndPathHandler(HttpMethods.DELETE)
-export const optionsHandlerMw = matchMethodAndPathHandler(HttpMethods.OPTIONS)
-
 const matchMethodAndPath = (method: HttpMethods) => <A extends Context, B extends object = object>(
   path: string
 ): Arrow<A, notFound | Result, A & { params: B }> => Arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
@@ -89,3 +52,16 @@ export const patch = matchMethodAndPath(HttpMethods.PATCH)
 export const put = matchMethodAndPath(HttpMethods.PUT)
 export const del = matchMethodAndPath(HttpMethods.DELETE)
 export const options = matchMethodAndPath(HttpMethods.OPTIONS)
+
+// TODO: think about 'handlers' for users coming from express
+// const matchMethodAndPathHandler = (method: HttpMethods) => <D extends Context, D1, B extends object = object>(
+//   path: string,
+//   handler: (_:D & { params: B }) => Arrow<D & D1, Result, Result>
+// ): Arrow<D & D1, notFound | Result, Result> => matchMethodAndPath(method)<D, B>(path).flatMap(handler)
+
+// export const getHandler = matchMethodAndPathHandler(HttpMethods.GET)
+// export const postHandler = matchMethodAndPathHandler(HttpMethods.POST)
+// export const patchHandler = matchMethodAndPathHandler(HttpMethods.PATCH)
+// export const putHandler = matchMethodAndPathHandler(HttpMethods.PUT)
+// export const delHandler = matchMethodAndPathHandler(HttpMethods.DELETE)
+// export const optionsHandler = matchMethodAndPathHandler(HttpMethods.OPTIONS)
