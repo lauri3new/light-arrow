@@ -49,7 +49,7 @@ const userService = {
   ) => draw(({ userModel }: HasUserModel & HasLogger) => userModel.save(name))
 }
 
-const a = provideSome({ userModel })(userService.create('jim')).modifyDependencies(async (b) => {
+const a = provideSome({ userModel })(userService.create('jim')).modifyD(async (b) => {
   console.log('modify', b)
   return Right(b)
 })
@@ -58,7 +58,7 @@ a.provide({
   logger,
   dbClient
 })
-  .runAsPromise()
+  .runAsPromise({})
   .then((a) => console.log('success', a))
   .catch((e) => console.log(e))
 

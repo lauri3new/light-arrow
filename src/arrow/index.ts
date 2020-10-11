@@ -5,18 +5,21 @@ import {
 // interface
 
 export interface Arrow<D, E, A> {
+  // constructor
   __val: (_:D) => Promise<Either<E, A>>
+  // monad
   map: <B>(f: (_:A) => B) => Arrow<D, E, B>
+  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B>
   leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A>
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
-  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B>
-  provide: (_:D) => Arrow<void, E, A>
-  modifyDependencies: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>
-  flatMapFunction: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  // combinators
   andThen: <E2, B>(_: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
-  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
-  merge: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E | E2, A & B>
-  combine: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E2, A | B>
+  merge: <D2, E2, B extends object>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, A & B>
+  combine: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>
+  // D
+  provide: (_:D) => Arrow<{}, E, A>
+  modifyD: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>
+  // run
   runAsPromise: (
     context: D
   ) => Promise<A>
@@ -26,6 +29,9 @@ export interface Arrow<D, E, A> {
     g: (_:E) => E2,
     j: (_?: Error) => ER
   ) => void
+  // monad/combinator constructor
+  flatMapFunction: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
+  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
 }
 
 // implementation
@@ -42,26 +48,14 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
     ))
   ),
   provide: (ds: D) => Arrow((d) => __val(ds)),
-  flatMapFunction: <E2, B>(f: (_:A) => (_:D) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2)(a)
-    ))
-  ),
   andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f.__val(s2)
     ))
   ),
-  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2)
-    ))
-  ),
-  merge: <E2, B>(f:Arrow<D, E2, B>) => Arrow<D, E | E2, A & B>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B>> => eitherD2.match(
+  merge: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, A & B>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f.__val(a).then((eitherB): Promise<Either<E | E2, A & B>> => eitherB.match(
         e => Promise.resolve(Left(e)),
@@ -69,8 +63,8 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       ))
     ))
   ),
-  combine: <E2, B>(f:Arrow<D, E2, B>):Arrow<D, E2, A | B> => Arrow<D, E2, A | B>(
-    (c: D) => __val(c)
+  combine: <D2, E2, B>(f:Arrow<D2, E2, B>):Arrow<D & D2, E2, A | B> => Arrow<D & D2, E2, A | B>(
+    (c: D & D2) => __val(c)
       .then(
         (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
           e => f.__val(c),
@@ -86,7 +80,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       some => some
     )
   ),
-  modifyDependencies: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>((c: D) => __val(c)
+  modifyD: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>((c: D) => __val(c)
     .then(
       (eitherA): Promise<Either<E | E2, A>> => eitherA.match(
         e => Promise.resolve(Left(e)),
@@ -111,10 +105,26 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       .catch(
         j
       )
-  }
+  },
+  flatMapFunction: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>):Arrow<D & D2, E | E2, B> => Arrow<D & D2, E | E2, B>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f(s2)(a)
+    ))
+  ),
+  andThenFunction: <E2, B>(f: (_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
+      e => Promise.resolve(Left(e)),
+      s2 => f(s2)
+    ))
+  )
 })
 
-// helpers/constructors
+// helpers
+
+// constructors
+
+export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
 
 export const draw = <D, D2, E, A>(f:(_:D) => Arrow<D2, E, A>): Arrow<D & D2, E, A> => Arrow<D & D2, E, A>(
   (a: D & D2) => f(a).__val(a)
@@ -132,11 +142,9 @@ export const reject = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(a
 
 export const fromEither = <E, A, D = object>(a:Either<E, A>):Arrow<D, E, A> => Arrow(async (_:any) => a)
 
-// TODO: rename more friendly
+export const drawAsync = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
 
-export const drawPromise = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
-
-export const drawFailablePromise = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const drawFailableAsync = <D, E, A>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
 // combinators
 
@@ -144,91 +152,56 @@ export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.
   (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export const combine = <D, B, C>(...as: Arrow<D, B, C>[]): Arrow<D, B, C> => {
+export function merge <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E1 | E2, A1 | A2>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, A1 | A2 | A3>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, A1 | A2 | A3 | A4>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, A1 | A2 | A3 | A4 | A5>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E1 | E2 | E3 | E4 | E5 | E6, A1 | A2 | A3 | A4 | A5 | A6>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E1 | E2 | E3 | E4 | E5 | E6 | E7, A1 | A2 | A3 | A4 | A5 | A6 | A7>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8>
+export function merge <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8 | A9>
+export function merge(...as: any[]) {
+  if (as.length === 1) return as[0]
+  if (as.length === 2) return as[0].merge(as[1])
+  const [a, b, ...aas] = as
+  // @ts-ignore
+  return merge(a.merge(b), ...aas)
+}
+
+export function combine <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E1 | E2, A1 & A2>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, A1 & A2 & A3>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, A1 & A2 & A3 & A4>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, A1 & A2 & A3 & A4 & A5>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E1 | E2 | E3 | E4 | E5 | E6, A1 & A2 & A3 & A4 & A5 & A6>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E1 | E2 | E3 | E4 | E5 | E6 | E7, A1 & A2 & A3 & A4 & A5 & A6 & A7>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, A1 & A2 & A3 & A4 & A5 & A6 & A7 & A8>
+export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, A1 & A2 & A3 & A4 & A5 & A6 & A7 & A8 & A9>
+export function combine(...as: any[]) {
   if (as.length === 1) return as[0]
   if (as.length === 2) return as[0].combine(as[1])
   const [a, b, ...aas] = as
+  // @ts-ignore
   return combine(a.combine(b), ...aas)
-}
-
-export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
-
-export function merge <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
-export function merge <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
-export function merge <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
-export function merge <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
-export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>)
-  : (d: A) => Arrow<D1, B | D | F | H | J | L, M>
-export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
-  : (d: A) => Arrow<D1, B | D | F | H | J | L | N, O>
-export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
-  : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P, Q>
-export function merge <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
-  : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P | R, S>
-export function merge<A>(...as: any[]) {
-  return function (d: A) {
-    const [aa, ...aas] = as
-    if (aas && aas.length === 0) return aa(d)
-    return aa(d).flatMap(
-      // @ts-ignore
-      merge(...aas)
-    )
-  }
 }
 
 export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
 
-// kleisli combinators
+const a = draw((_: { ok: string }) => resolve(5)).provide({ ok: 'sef' })
+const b = draw((_: { hello: number }) => resolve({ ok: 5 }))
 
-// export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
+const c = a.merge(b)
 
-// export function composeDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>): (d: A) => Arrow<D1, B | D, E>
-// export function composeDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>): (d: A) => Arrow<D1, B | D | F, G>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>): (d: A) => Arrow<D1, B | D | F | H, I>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>): (d: A) => Arrow<D1, B | D | F | H | J, K>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>)
-//   : (d: A) => Arrow<D1, B | D | F | H | J | L, M>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
-//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N, O>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
-//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P, Q>
-// export function composeDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
-//   : (d: A) => Arrow<D1, B | D | F | H | J | L | N | P | R, S>
-// export function composeDraw<A>(...as: any[]) {
-//   return function (d: A) {
-//     const [aa, ...aas] = as
-//     if (aas && aas.length === 0) return aa(d)
-//     return aa(d).flatMap(
-//       // @ts-ignore
-//       composeDraw(...aas)
-//     )
-//   }
-// }
+c.runAsPromise({ hello: 6 })
+  .then(a => {
+    console.log('hello', a)
+  })
 
-// export const sequenceDraw = <D, C, E, A>(as: Draw<D, C, E, A>[]): Draw<D, C, E, A[]> => as.reduce(
-//   (acc, teaK) => (_: C) => teaK(_).flatMap(a => acc(_).map(aas => [a, ...aas])), (_: C) => Arrow<D, E, A[]>(() => Promise.resolve(Right<A[]>([])))
-// )
-
-// export function combineDraw <D1, A, B, C, D, E>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>): (d: A) => Arrow<D1, D, C | E>
-// export function combineDraw <D1, A, B, C, D, E, F, G>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>): (d: A) => Arrow<D1, F, C | E | G>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>): (d: A) => Arrow<D1, H, C | E | G | I>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>): (d: A) => Arrow<D1, J, C | E | G | I | K>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M>(a: Draw<D1, A, B, C>, b: Draw<D1, A, D, E>, c: Draw<D1, A, F, G>, d: Draw<D1, A, H, I>, e: Draw<D1, A, J, K>, f: Draw<D1, A, L, M>)
-//     : (d: A) => Arrow<D1, L, C | E | G | I | K | M>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>)
-//     : (d: A) => Arrow<D1, N, C | E | G | I | K | M | O>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>)
-//     : (d: A) => Arrow<D1, P, C | E | G | I | K | M | O | Q>
-// export function combineDraw <D1, A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S>(a: Draw<D1, A, B, C>, b: Draw<D1, C, D, E>, c: Draw<D1, E, F, G>, d: Draw<D1, G, H, I>, e: Draw<D1, I, J, K>, f: Draw<D1, K, L, M>, g: Draw<D1, M, N, O>, h: Draw<D1, O, P, Q>, i: Draw<D1, Q, R, S>)
-//     : (d: A) => Arrow<D1, R, C | E | G | I | K | M | O | Q | S>
-// export function combineDraw <D, A>(...a: Draw<D, A, any, any>[]): Draw<D, A, any, any>
-// export function combineDraw<D, A>(...as: Draw<D, A, any, any>[]): Draw<D, A, any, any> {
-//   if (as.length === 1) return as[0]
-//   if (as.length === 2) return (c: A) => as[0](c).combine(as[1](c))
-//   const [a, b, ...aas] = as
-//   return combineDraw(combineDraw(a, b), ...aas)
-// }
-
-// export const retryDraw = (n: number) => <D, C, E, A>(a: Draw<D, C, E, A>): Draw<D, C, E, A> => (n < 1 ? a : combineDraw(a, (retryDraw(n - 1)(a))))
-
-// type aliases
+const d = merge(a, b)
