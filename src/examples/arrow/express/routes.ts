@@ -1,6 +1,6 @@
 import { Arrow, combine, draw } from '../../../arrow'
 import { Right } from '../../../either'
-import { get, getHandler } from '../../../express/arrow'
+import { get, getHandler } from '../../../express/index'
 import { BadRequest, Context, OK } from '../../../express/result'
 import { authMiddleware } from './middleware'
 import { HasUserService } from './services'

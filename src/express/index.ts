@@ -1,8 +1,9 @@
 import { Express } from 'express'
 import { match } from 'path-to-regexp'
 import {
-  Arrow, draw, reject, resolve
+  Arrow, draw, reject
 } from '../Arrow/index'
+import { Left, Right } from '../either'
 import {
   Context, HttpMethods, isNotFound, notFound, Result, runResponse
 } from './result'
@@ -41,12 +42,14 @@ export const putHandler = matchMethodAndPathHandler(HttpMethods.PUT)
 export const delHandler = matchMethodAndPathHandler(HttpMethods.DELETE)
 export const optionsHandler = matchMethodAndPathHandler(HttpMethods.OPTIONS)
 
-const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(path: string): Arrow<A, notFound | Result, A & { req: { params: object } }> => draw<A, A, notFound | Result, A & { req: { params: object } }>((ctx: A) => {
+const matchMethodAndPath = (method: HttpMethods) => <A extends Context>(
+  path: string
+): Arrow<A, notFound | Result, A & { req: { params: object } }> => Arrow<A, notFound | Result, A & { req: { params: object } }>(async (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return resolve<A & { req: { params: object } }, never, A>(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
+    return Right(({ ...ctx, req: { ...ctx.req, params: _match.params } }))
   }
-  return reject<notFound, never, A>({ path: ctx.req.path, method: ctx.req.method })
+  return Left({ path: ctx.req.path, method: ctx.req.method })
 })
 
 export const get = matchMethodAndPath(HttpMethods.GET)
