@@ -52,16 +52,3 @@ export const patch = matchMethodAndPath(HttpMethods.PATCH)
 export const put = matchMethodAndPath(HttpMethods.PUT)
 export const del = matchMethodAndPath(HttpMethods.DELETE)
 export const options = matchMethodAndPath(HttpMethods.OPTIONS)
-
-// TODO: think about 'handlers' for users coming from express
-// const matchMethodAndPathHandler = (method: HttpMethods) => <D extends Context, D1, B extends object = object>(
-//   path: string,
-//   handler: (_:D & { params: B }) => Arrow<D & D1, Result, Result>
-// ): Arrow<D & D1, notFound | Result, Result> => matchMethodAndPath(method)<D, B>(path).flatMap(handler)
-
-// export const getHandler = matchMethodAndPathHandler(HttpMethods.GET)
-// export const postHandler = matchMethodAndPathHandler(HttpMethods.POST)
-// export const patchHandler = matchMethodAndPathHandler(HttpMethods.PATCH)
-// export const putHandler = matchMethodAndPathHandler(HttpMethods.PUT)
-// export const delHandler = matchMethodAndPathHandler(HttpMethods.DELETE)
-// export const optionsHandler = matchMethodAndPathHandler(HttpMethods.OPTIONS)
