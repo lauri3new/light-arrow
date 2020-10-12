@@ -168,9 +168,9 @@ export const drawFailableFunction = <D, A, E = Error>(a:(_:D) => A):Arrow<D, E, 
   }
 })
 
-export const drawSuccess = <A>(a: A):Task<A> => Arrow(async () => Right(a))
+export const succeed = <A>(a: A):Task<A> => Arrow(async () => Right(a))
 
-export const drawFail = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
+export const fail = <E, A = never, D = object>(a: E):Arrow<D, E, A> => Arrow(async (_:D) => Left(a))
 
 export const drawNullable = <A>(
   a: A | null | undefined
