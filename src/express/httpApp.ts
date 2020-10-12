@@ -10,7 +10,6 @@ import {
 
 export type httpRoutes<A extends Context = Context> = Arrow<A, notFound | Result, Result> | Arrow<A, notFound, Result>
 export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
-export type Middleware<A, B extends A> = Arrow<A, Result, B>
 
 export const bindApp = <A>(httpApp: httpApp<A & Context>, capabilities: A) => (app: Express) => {
   app.use('*', (req, res) => httpApp({ req, ...capabilities }).then((result) => {
@@ -36,12 +35,12 @@ export const seal = <A extends Context>(
       return onError(b)
     })
 
-const matchMethodAndPath = (method: HttpMethods) => <A extends Context, B extends object = object>(
+const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, A extends Context = Context>(
   path: string
-): Arrow<A, notFound | Result, A & { params: B }> => Arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
+): Arrow<A, notFound | Result, { params: B }> => Arrow<A, notFound | Result, { params: B }>(async (ctx: Context) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return Right(({ ...ctx, params: _match.params as B }))
+    return Right(({ params: _match.params as B }))
   }
   return Left({ path: ctx.req.path, method: ctx.req.method })
 })
