@@ -14,45 +14,37 @@ export interface Arrow<D, E, A> {
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
   // combinators
   orElse: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>
-  andThen: <D2, E2, B>(_: Arrow<Partial<A> & D2, E2, B>) => Arrow<D & D2, E | E2, B>
+  andThen: <E2, B>(f: Arrow<Partial<A>, E2, B>) => Arrow<D, E | E2, B>
   group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>
-  groupFirst: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D, E | E2, A>
-  groupSecond: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D, E | E2, B>
-  // merge combinators
-  // mergeThen: <D2 extends object, E2, B>(_: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, B>
-  // mergeGroup: <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>
-  // mergeGroupFirst: <E2, B>(f:Arrow<Partial<D>, E2, B>) => Arrow<D, E | E2, A>
-  // mergeGroupSecond: <E2, B>(f:Arrow<Partial<D>, E2, B>) => Arrow<D, E | E2, B>
-  // mergeSuccess: <D2 extends object, E2, B extends object>(_: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B>
-  // mergeOut: <D2 extends object, E2, B extends object>(_: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B & D & D2>
+  groupFirst: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, A>
+  groupSecond: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, B>
   // depencendies
-  provide: (_:D) => Arrow<{}, E, A>
-  modifyDependency: <E2, D2 extends D>(f:(_:D) => Promise<Either<E2, D2>>) => Arrow<D, E | E2, A>
+  provide: <D2>(_:D) => Arrow<{}, E, A>
   // run
   runAsPromise: (
     context: D
-  ) => Promise<A>
-  run: <B, E2, ER>(
+  ) => Promise<{
     context: D,
-    f: (_:A) => B,
-    g: (_:E) => E2,
-    j: (_?: Error) => ER
+    result: A
+  }>
+  runAsPromiseResult: (
+    context: D
+  ) => Promise<A>
+  run: <B1, E2, F, D2>(
+    context: D,
+    mapResult: (_:A) => B1,
+    mapError: (_:E) => E2,
+    handleFailure: (_?: Error) => F,
+    handleContext?: (_:D) => D2
   ) => void
   // flatMapF
   flatMapF: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
   // combinatorsF
   orElseF: <D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E2, A | B>
   andThenF: <E2, B>(_:(_:Partial<A>) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
-  groupF: <E2, B>(f:(_:Partial<A>) => Promise<Either<E2, B>>) => Arrow<D, E | E2, [A, B]>
-  groupFirstF: <E2, B>(f:(_:Partial<A>) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
-  groupSecondF: <E2, B>(f:(_:Partial<A>) => Promise<Either<E2, B>>) => Arrow<D, E | E2, A>
-  // merge combinatorsF
-  // mergeThenF: <D2 extends object, E2, B>(f: (_:Partial<A & D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
-  // mergeGroupF: <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D, E | E2, [A, B]>
-  // mergeGroupFirst:  <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D, E | E2, A>
-  // mergeGroupSecond:  <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D, E | E2, B>
-  // mergeSuccessF: <D2 extends object, E2, B extends object>(f: (_:Partial<A & D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A & B>
-  // mergeOutF: <D2 extends object, E2, B extends object>(f: (_:Partial<A & D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A & B & D & D2>
+  groupF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, [A, B]>
+  groupFirstF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A>
+  groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
 }
 
 // implementation
@@ -84,133 +76,102 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
       s2 => f.__val(s2)
     ))
   ),
-  group: <E2, B>(f:Arrow<Partial<D>, E2, B>) => Arrow<D, E | E2, [A, B]>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2).then((c) => c.map((b) => [s2, b]))
-    ))
-  ),
-  mergeThen: <D2 extends object, E2, B>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, B>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right(s3))
-      ))
-    ))
-  ),
-  mergeGroup: <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>(
+  group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>(
     (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, [A, B]>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right([s2, s3]))
-      ))
+      s2 => f.__val(a).then((c) => c.map((b) => [s2, b]))
     ))
   ),
-  mergeSuccess: <D2 extends object, E2, B extends object>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B>> => eitherD2.match(
+  groupFirst: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, A>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, A & B>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right({ ...s2, ...s3 }))
-      ))
+      s2 => f.__val(a).then(() => Right(s2))
     ))
   ),
-  mergeOut: <D2 extends object, E2, B extends object>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B & D & D2>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B & D & D2>> => eitherD2.match(
+  groupSecond: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, B>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, A & B & D & D2>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right({ ...a, ...s2, ...s2, ...s3 }))
-      ))
+      s2 => f.__val(a)
     ))
+  ),
+  runAsPromiseResult: (
+    context: D
+  ) => __val(context).then(
+    (eitherD) => eitherD.match(
+      error => { throw error },
+      some => some
+    )
   ),
   runAsPromise: (
     context: D
   ) => __val(context).then(
     (eitherD) => eitherD.match(
-      none => { throw none },
-      some => some
+      error => { throw error },
+      result => ({
+        result,
+        context
+      })
     )
   ),
-  run: <B, E2, F>(
+  run: <B1, E2, F, D2>(
     context: D,
-    f: (_:A) => B,
-    g: (_:E) => E2,
-    j: (_?: Error) => F
+    mapResult: (_:A) => B1,
+    mapError: (_:E) => E2,
+    handleFailure: (_?: Error) => F,
+    handleContext?: (_:D) => D2
   ) => {
     __val(context).then(
-      (eitherD) => eitherD.match(
-        none => g(none),
-        some => f(some)
-      )
+      (eitherD) => {
+          eitherD.match(
+            none => mapError(none),
+            some => mapResult(some)
+          )
+          if (handleContext) {
+            handleContext(context)
+          }
+        }
     )
       .catch(
-        j
+        handleFailure
       )
   },
   flatMapF: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>(
     (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f(s2).__val(a)
+      s2 => f(s2)(a)
     ))
   ),
-  orElseF: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>(
+  orElseF: <D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E2, A | B>(
     (c: D & D2) => __val(c)
       .then(
         (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
-          e => f.__val(c),
+          e => f(c),
           a => Promise.resolve(Right(a))
         )
       )
   ),
-  andThen: <E2, B>(f: Arrow<Partial<A>, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+  andThenF: <E2, B>(f:(_:Partial<A>) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2)
+      s2 => f(s2)
     ))
   ),
-  group: <E2, B>(f:Arrow<Partial<D>, E2, B>) => Arrow<D, E | E2, [A, B]>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2).then((c) => c.map((b) => [s2, b]))
-    ))
-  ),
-  mergeThen: <D2 extends object, E2, B>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, B>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right(s3))
-      ))
-    ))
-  ),
-  mergeGroup: <D2 extends object, E2, B>(f:Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>(
+  groupF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, [A, B]>(
     (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, [A, B]>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right([s2, s3]))
-      ))
+      s2 => f(a).then((c) => c.map((b) => [s2, b]))
     ))
   ),
-  mergeSuccess: <D2 extends object, E2, B extends object>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B>> => eitherD2.match(
+  groupFirstF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, A & B>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right({ ...s2, ...s3 }))
-      ))
+      s2 => f(a).then(() => Right(s2))
     ))
   ),
-  mergeOut: <D2 extends object, E2, B extends object>(f: Arrow<Partial<A & D> & D2, E2, B>) => Arrow<D & D2, E | E2, A & B & D & D2>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A & B & D & D2>> => eitherD2.match(
+  groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>(
+    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
-      s2 => f.__val({ ...a, ...s2 }).then((eitherB): Promise<Either<E | E2, A & B & D & D2>> => eitherB.match(
-        e => Promise.resolve(Left(e)),
-        s3 => Promise.resolve(Right({ ...a, ...s2, ...s2, ...s3 }))
-      ))
+      s2 => f(a)
     ))
   ),
 })
@@ -261,44 +222,24 @@ export const provideSome = <D>(d: D) => <D2, E, A>(a: Arrow<D & D2, E, A>): Arro
 
 // combinators
 
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E1 | E2, A1 & A2>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, A1 & A2 & A3>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, A1 & A2 & A3 & A4>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, A1 & A2 & A3 & A4 & A5>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E1 | E2 | E3 | E4 | E5 | E6, A1 & A2 & A3 & A4 & A5 & A6>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E1 | E2 | E3 | E4 | E5 | E6 | E7, A1 & A2 & A3 & A4 & A5 & A6 & A7>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object, D8, E8, A8 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, A1 & A2 & A3 & A4 & A5 & A6 & A7 & A8>
-export function merge <D1, E1, A1 extends object, D2, E2, A2 extends object, D3, E3, A3 extends object, D4, E4, A4 extends object, D5, E5, A5 extends object, D6, E6, A6 extends object, D7, E7, A7 extends object, D8, E8, A8 extends object, D9, E9, A9 extends object>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, A1 & A2 & A3 & A4 & A5 & A6 & A7 & A8 & A9>
-export function merge(...as: any[]) {
-  if (as.length === 1) return as[0]
-  if (as.length === 2) return as[0].merge(as[1])
-  const [a, b, ...aas] = as
-  // @ts-ignore
-  return merge(a.merge(b), ...aas)
-}
-
-export function combine <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E2, A1 | A2>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E3, A1 | A2 | A3>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E4, A1 | A2 | A3 | A4>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E5, A1 | A2 | A3 | A4 | A5>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
+export function orElse <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E2, A1 | A2>
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E3, A1 | A2 | A3>
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E4, A1 | A2 | A3 | A4>
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E5, A1 | A2 | A3 | A4 | A5>
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E6, A1 | A2 | A3 | A4 | A5 | A6>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E7, A1 | A2 | A3 | A4 | A5 | A6 | A7>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E8, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8>
-export function combine <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
+export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
   : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E9, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8 | A9>
-export function combine(...as: any[]) {
+export function orElse(...as: any[]) {
   if (as.length === 1) return as[0]
-  if (as.length === 2) return as[0].combine(as[1])
+  if (as.length === 2) return as[0].orElse(as[1])
   const [a, b, ...aas] = as
   // @ts-ignore
-  return combine(a.combine(b), ...aas)
+  return orElse(a.orElse(b), ...aas)
 }
 
 export function andThen <D1, E1, A1, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>): Arrow<D1, E1 | E2, A2>
@@ -325,7 +266,7 @@ export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.
   (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.combine(retry(n - 1)(a)))
+export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.orElse(retry(n - 1)(a)))
 
 // utility types
 
@@ -334,8 +275,10 @@ export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : nev
 export type ArrowsD<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
 
 const a = succeed<{ abc: number }, { ok: 123 }>({ abc: 123 })
-  .mergeThen(succeed<{ cad: number }, { ok: 123, kpok: 89 }>({ cad: 123 }))
-  .provide({ ok: 123, kpok: 89 })
-
-const g = succeed<{}, { z: 'sef' }>({ })
-  .andThen(succeed<{ ok: number }, { z: 'sef' }>({ ok: 123 }))
+  .provide({ ok: 123 })
+  .run(
+    {},
+    x => x,
+    b => b,
+    c => c
+  )

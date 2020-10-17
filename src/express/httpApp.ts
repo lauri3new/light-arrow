@@ -25,7 +25,7 @@ export const seal = <A extends Context>(
   a: httpRoutes<A>,
   onNotFound: (_: notFound | Result) => Result,
   onError: (e?: Error) => Result
-): httpApp<A> => (ctx: A) => a.runAsPromise(ctx)
+): httpApp<A> => (ctx: A) => a.runAsPromiseResult(ctx)
     .catch((b: notFound | Result | Error) => {
       if (isNotFound(b)) {
         return onNotFound(b)
