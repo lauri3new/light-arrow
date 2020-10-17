@@ -37,7 +37,7 @@ export const seal = <A extends Context>(
 
 const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, A extends Context = Context>(
   path: string
-): Arrow<A, notFound | Result, { params: B }> => Arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
+): Arrow<A, notFound | Result, A & { params: B }> => Arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
     return Right(({ ...ctx, params: _match.params as B }))
