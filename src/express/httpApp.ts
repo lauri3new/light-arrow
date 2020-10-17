@@ -40,7 +40,7 @@ const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, 
 ): Arrow<A, notFound | Result, { params: B }> => Arrow<A, notFound | Result, { params: B }>(async (ctx: Context) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
-    return Right(({ params: _match.params as B }))
+    return Right(({ ...ctx, params: _match.params as B }))
   }
   return Left({ path: ctx.req.path, method: ctx.req.method })
 })
