@@ -14,7 +14,7 @@ export interface Arrow<D, E, A> {
   biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
   // combinators
   orElse: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>
-  andThen: <E2, B>(f: Arrow<Partial<A>, E2, B>) => Arrow<D, E | E2, B>
+  andThen: <E2, B>(f: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
   group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>
   groupFirst: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, A>
   groupSecond: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, B>
@@ -41,7 +41,7 @@ export interface Arrow<D, E, A> {
   flatMapF: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
   // combinatorsF
   orElseF: <D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E2, A | B>
-  andThenF: <E2, B>(_:(_:Partial<A>) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
+  andThenF: <E2, B>(_:(_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
   groupF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, [A, B]>
   groupFirstF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A>
   groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
@@ -70,7 +70,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
         )
       )
   ),
-  andThen: <E2, B>(f: Arrow<Partial<A>, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f.__val(s2)
@@ -150,7 +150,7 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
         )
       )
   ),
-  andThenF: <E2, B>(f:(_:Partial<A>) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
+  andThenF: <E2, B>(f:(_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
     (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
       e => Promise.resolve(Left(e)),
       s2 => f(s2)
@@ -273,12 +273,3 @@ export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C>
 export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer A> ? A : never
 export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : never
 export type ArrowsD<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
-
-const a = succeed<{ abc: number }, { ok: 123 }>({ abc: 123 })
-  .provide({ ok: 123 })
-  .run(
-    {},
-    x => x,
-    b => b,
-    c => c
-  )
