@@ -1,3 +1,4 @@
+import { performance } from 'perf_hooks'
 import {
   Either, Left, Right
 } from '../either/index'
@@ -273,3 +274,28 @@ export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C>
 export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer A> ? A : never
 export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : never
 export type ArrowsD<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
+
+let a = Arrow<unknown, any, number>(async () => Right(1))
+const sleep = () => new Promise((res) => setTimeout(() => { res() }, 1))
+console.log(performance.now())
+for (let i = 0; i < 5000; i++)
+{
+  a = a.map((b: number) => b + 1).flatMap((a) => Arrow(async () => {
+    // await sleep()
+    return Right(a + 1)
+  }))
+}
+
+a.run(
+  {},
+  (r) => {
+    console.log(performance.now())
+    console.log('wahoo', r)
+    const used = process.memoryUsage().heapUsed / 1024 / 1024;
+    console.log(`The script uses approximately ${Math.round(used * 100) / 100} MB`);
+  },
+  (e) => console.log('doh', e),
+  (f) => console.log('uhoh', f),
+  (c) => console.log('ctx', c)
+)
+setImmediate(() => console.log('hello'))

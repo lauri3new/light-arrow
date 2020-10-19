@@ -2,6 +2,7 @@
 
 export interface Either<E, A> {
   _tag: string
+  __val: E | A
   leftMap:<B>(f:(_: E) => B) => Either<B, A>
   map:<B>(f:(_: A) => B) => Either<E, B>
   biMap:<E2, B>(f:(_: E) => E2, g:(_: A) => B) => Either<E2, B>
@@ -18,6 +19,7 @@ export type Left<E> = Either<E, never>
 
 export const Right = <A, E = never>(a: A): Either<E, A> => ({
   _tag: 'right',
+  __val: a,
   map: f => Right(f(a)),
   leftMap: f => Right(a),
   biMap: (f, g) => Right(g(a)),
@@ -27,6 +29,7 @@ export const Right = <A, E = never>(a: A): Either<E, A> => ({
 
 export const Left = <E, A = never>(a: E): Either<E, A> => ({
   _tag: 'left',
+  __val: a,
   map: _ => Left<E>(a),
   leftMap: f => Left(f(a)),
   biMap: (f, g) => Left(f(a)),
