@@ -1,8 +1,7 @@
 /* eslint-disable */
 // import { List } from 'immutable'
 import { List, list } from '@funkia/list'
-import { performance } from 'perf_hooks'
-import { Either, Right } from '../either'
+import { Either } from '../either'
 
 interface SafeArrow<D, E, A> {
   // constructor
@@ -18,8 +17,6 @@ interface SafeArrow<D, E, A> {
   group: <D2, E2, B>(f:SafeArrow<Partial<D> & D2, E2, B>) => SafeArrow<D & D2, E | E2, [A, B]>
   groupFirst: <D2, E2, B>(f:SafeArrow<Partial<D>& D2, E2, B>) => SafeArrow<D & D2, E | E2, A>
   groupSecond: <D2, E2, B>(f:SafeArrow<Partial<D>& D2, E2, B>) => SafeArrow<D & D2, E | E2, B>
-  // // depencendies
-  provide: (_:D) => SafeArrow<{}, E, A>
   // // run
   runAsPromise: (
     context: D
@@ -63,7 +60,7 @@ enum Ops {
 
 async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
   let result: any
-  let res: any
+  let x: any
   let isLeft: boolean = false
   let error: any
   let ctx = context || {}
@@ -78,15 +75,19 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
           break;
         }
         case Ops.orElse: {
-            let x
+            isLeft = false
+            error = undefined
             if (typeof op.f === 'function') {
-              x = await op.f(result)(ctx)
+              x = await op.f(ctx)
             } else {
-              x = await op.f.runAsPromise(context)
+              x = await op.f.runAsPromise(ctx)
             }
-            if (x.error || x.failure) {
+            if (x.failure) {
+              throw x.failure
+            }
+            if (x.error) {
               isLeft = true
-              error = x.error || x.failure
+              error = x.error
             } else {
               result = x.result
             }
@@ -97,11 +98,11 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
     switch (op._tag) {
       case Ops.andThen: {
         if (typeof op.f === 'function') {
-          res = await op.f(result)
+          x = await op.f(result)
         } else {
-          res = await op.f.__val(result)
+          x = await op.f.__val(result)
         }
-        res.match(
+        x.match(
           (e: any) => {
             isLeft = true
             error = e
@@ -114,42 +115,63 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
       }
       case Ops.group: {
         if (typeof op.f === 'function') {
-          res = await op.f(result)
+          x = await op.f(ctx)
         } else {
-          res = await op.f.__val(result)
+          x = await op.f.runAsPromise(ctx)
         }
-        res.match(
-          (e: any) => {
-            isLeft = true
-            error = e
-           },
-          (r: any) => {
-            result = [ result, r]
-          }
-        )
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = [result, x.result]
+        }
         break;
       }
       case Ops.groupFirst: {
         if (typeof op.f === 'function') {
-          res = await op.f(result)
+          x = await op.f(ctx)
         } else {
-          res = await op.f.__val(result)
+          x = await op.f.runAsPromise(ctx)
         }
-        res.match(
-          (e: any) => {
-            error = e
-           },
-          (r: any) => {}
-        )
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = result
+        }
         break;
       }
       case Ops.groupSecond: {
         if (typeof op.f === 'function') {
-          res = await op.f(result)
+          x = await op.f(ctx)
         } else {
-          res = await op.f.__val(result)
+          x = await op.f.runAsPromise(ctx)
         }
-        res.match(
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = x.result
+        }
+        break;
+      }
+      case Ops.flatMap: {
+        x = op.f(result)
+        if (typeof x === 'function') {
+          x = await x(ctx)
+        } else {
+          x = await x.__val(ctx)
+        }
+        x.match(
           (e: any) => {
             isLeft = true
             error = e
@@ -160,24 +182,15 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
         )
         break;
       }
-      case Ops.flatMap: {
-        res = op.f(result)
-        if (typeof res === 'function') {
-          res = await res(ctx)
-        } else {
-          res = await res.__val(ctx)
-        }
-        result = res.__val
-        break;
-      }
       case Ops.map: {
         result = op.f(result)
         break;
       }
       case Ops.init: {
-        res = await op.f(context)
-        res.match(
+        x = await op.f(ctx)
+        x.match(
           (e: any) => {
+            isLeft = true
             error = e
            },
           (r: any) => {
@@ -307,19 +320,16 @@ function SafeArrow<D, E, A>(__val?: (_:D) => Promise<Either<E, A>>, initialOps?:
         f
       }))
     },
-    provide(c:D): SafeArrow<{}, E, A> {
-      return SafeArrow<{}, E, A>(undefined, operations, c)
-    },
     async runAsPromiseResult(
       c: D
     ) {
       const {
         error,
-        result,
-        context
-      } = await _run(c, operations)
-      if (error) {
-        throw error
+        failure,
+        result
+      } = await _run(ctx || c, operations)
+      if (error || failure) {
+        throw error || failure
       }
       return result
     },
@@ -330,22 +340,22 @@ function SafeArrow<D, E, A>(__val?: (_:D) => Promise<Either<E, A>>, initialOps?:
       handleFailure: (_?: Error) => F,
       handleContext?: (_:D) => D2
     ) {
-      try {
         const {
           error,
           result,
-          context
-        } = await _run(c, operations)
-        if (error) {
+          context,
+          failure
+        } = await _run(ctx || c, operations)
+        if (failure) {
+          handleFailure(failure)
+        } else if (error) {
           mapError(error)
+        } else {
+          mapResult(result)
         }
-        mapResult(result)
         if (handleContext) {
-          handleContext(c)
-        } 
-      } catch (e) {
-        handleFailure(e)
-      }
+          handleContext(context)
+        }
     },
     async runAsPromise(
       c: D
@@ -355,40 +365,15 @@ function SafeArrow<D, E, A>(__val?: (_:D) => Promise<Either<E, A>>, initialOps?:
         error,
         result,
         context
-      } = await _run(c, operations)
-      if (failure) {
-        throw failure
-      }
+      } = await _run(ctx || c, operations)
       return {
         result,
         error,
-        context
+        context,
+        failure
       }
     }
   }
 }
 
-const sArrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):SafeArrow<D, E, A> => SafeArrow(__val)
-
-let a = sArrow<unknown, any, number>(async () => Right(1))
-
-const sleep = () => new Promise((res) => setTimeout(() => { res() }, 1))
-console.log(performance.now())
-for (let i = 0; i < 300000; i++)
-{
-  a = a.flatMap((c) => sArrow<any, any, number>(async () => Right(c + 1)))
-}
-
-a.run(
-  {},
-  (r) => {
-    console.log(performance.now())
-    console.log('wahoo', r)
-    const used = process.memoryUsage().heapUsed / 1024 / 1024;
-    console.log(`The script uses approximately ${Math.round(used * 100) / 100} MB`);
-  },
-  (e) => console.log('doh', e),
-  (f) => console.log('uhoh', f),
-  (c) => console.log('ctx', c)
-)
-setImmediate(() => console.log('hello'))
+export const sArrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):SafeArrow<D, E, A> => SafeArrow(__val)
