@@ -1,8 +1,8 @@
 import { performance } from 'perf_hooks'
 import { sArrow } from '../arrow/stacksafe'
-import { Right } from '../either'
+import { Left, Right } from '../either'
 
-it('should not stack overflow', async () => {
+it('map should not stack overflow', async () => {
   let a = sArrow<{}, never, number>(async () => Right(1))
   for (let i = 0; i < 100000; i += 1) {
     a = a.map((c: number) => c + 1)
@@ -11,42 +11,86 @@ it('should not stack overflow', async () => {
   expect(result).toEqual(100001)
 })
 
-it('should flatMap close to speed of promises', async () => {
-  const p1 = performance.now()
+it('flatMap should not stack overflow', async () => {
+  let a = sArrow<{}, never, number>(async () => Right(1))
+  for (let i = 0; i < 100000; i += 1) {
+    a = a.flatMap((c: number) => sArrow<{}, never, number>(async () => Right(c + 1)))
+  }
+  const result = await a.runAsPromiseResult({})
+  expect(result).toEqual(100001)
+})
+
+it('andThen should not stack overflow', async () => {
+  let a = sArrow<{}, never, number>(async () => Right(1))
+  for (let i = 0; i < 10000; i += 1) {
+    a = a.andThen(sArrow<number, never, number>(async (c) => Right(c + 1)))
+  }
+  const result = await a.runAsPromiseResult({})
+  expect(result).toEqual(10001)
+})
+
+it('orElse should not stack overflow', async () => {
+  let a: any = sArrow<{}, number, never>(async () => Left(1))
+  for (let i = 0; i < 10000; i += 1) {
+    if (i === 9999) {
+      a = a.orElse(sArrow<{}, never, number>(async () => Right(10001)))
+    } else {
+      a = a.orElse(sArrow<{}, number, never>(async () => Left(10001)))
+    }
+  }
+  const { result, error, failure } = await a
+    .runAsPromise({})
+  expect(result).toEqual(10001)
+})
+
+it('group should not stack overflow', async () => {
+  let a: any = sArrow(async () => Right(0))
+  for (let i = 0; i < 10000; i += 1) {
+    a = a.group(sArrow(async () => Right(i))).map(([x, y]: any) => (Array.isArray(x) ? [...x, y] : [x, y]))
+  }
+  const result = await a.runAsPromiseResult({})
+  expect(result.length).toEqual(10001)
+  expect(result[10000]).toEqual(9999)
+})
+
+it('should flatMap faster than promises', async () => {
   let a = sArrow<{}, never, number>(async () => Right(1))
   for (let i = 0; i < 1000000; i += 1) {
     a = a.flatMap((c: number) => sArrow<{}, never, number>(async () => Right(c + 1)))
   }
+  const p1 = performance.now()
   await a.runAsPromise({})
   const p2 = performance.now()
-  const p3 = performance.now()
   let b = Promise.resolve(1)
   for (let i = 0; i < 1000000; i += 1) {
     b = b.then(async (c: number) => c + 1)
   }
+  const p3 = performance.now()
   await a.runAsPromise({})
   const p4 = performance.now()
   const promiseRunTime = p4 - p3
   const arrowRunTime = p2 - p1
-  expect(arrowRunTime).toBeLessThan(promiseRunTime * 1.25)
+
+  expect(arrowRunTime).toBeLessThan(promiseRunTime)
 })
 
-it('should map close to speed of promises', async () => {
-  const p1 = performance.now()
+it('should map faster than promises', async () => {
   let a = sArrow<{}, never, number>(async () => Right(1))
   for (let i = 0; i < 1000000; i += 1) {
     a = a.map((c: number) => c + 1)
   }
+  const p1 = performance.now()
   await a.runAsPromise({})
   const p2 = performance.now()
-  const p3 = performance.now()
   let b = Promise.resolve(1)
   for (let i = 0; i < 1000000; i += 1) {
     b = b.then((c: number) => c + 1)
   }
+  const p3 = performance.now()
   await a.runAsPromise({})
   const p4 = performance.now()
   const promiseRunTime = p4 - p3
   const arrowRunTime = p2 - p1
-  expect(arrowRunTime).toBeLessThan(promiseRunTime * 1.20)
+
+  expect(arrowRunTime).toBeLessThan(promiseRunTime)
 })
