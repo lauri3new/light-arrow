@@ -8,11 +8,28 @@ it('arrow should map', async () => {
   expect(result).toEqual(3)
 })
 
+it('arrow should map - fail', async () => {
+  const { error, result } = await sArrow<{}, never, number>(async () => Right(1))
+    .flatMap(() => sArrow<{}, number, never>(async () => Left(1)))
+    .map(a => a * 3)
+    .runAsPromise({})
+  expect(result).toEqual(1)
+  expect(error).toEqual(1)
+})
+
 it('arrow should flatMap', async () => {
   const result = await sArrow<{}, never, number>(async () => Right(1))
     .flatMap(a => sArrow<{}, never, number>(async () => Right(a * 3)))
     .runAsPromiseResult({})
   expect(result).toEqual(3)
+})
+
+it('arrow should flatMap - fail', async () => {
+  const { error, result } = await sArrow<{}, number, never>(async () => Left(1))
+    .flatMap(a => sArrow<{}, never, number>(async () => Right(a * 3)))
+    .runAsPromise({})
+  expect(result).toEqual(undefined)
+  expect(error).toEqual(1)
 })
 
 it('arrow should leftMap', async () => {
@@ -57,6 +74,14 @@ it('arrow should group', async () => {
   expect(result).toEqual([1, 2])
 })
 
+it('arrow should group - fail', async () => {
+  const { result, error } = await sArrow<{}, never, number>(async () => Right(1))
+    .group(sArrow<{}, number, never>(async () => Left(2)))
+    .runAsPromise({})
+  expect(result).toEqual(1)
+  expect(error).toEqual(2)
+})
+
 it('arrow should group first', async () => {
   const result = await sArrow<{}, never, number>(async () => Right(1))
     .groupFirst(sArrow<{}, never, number>(async () => Right(2)))
@@ -88,6 +113,15 @@ it('arrow should andThen', async () => {
 it('arrow should orElse', async () => {
   const result = await sArrow<{}, number, never>(async () => Left(1))
     .orElse(sArrow<{}, never, number>(async () => Right(2)))
+    .runAsPromiseResult({})
+  expect(result).toEqual(2)
+})
+
+it('arrow should orElse', async () => {
+  const a = sArrow<{}, number, never>(async () => Left(1))
+    .orElse(sArrow<{}, number, never>(async () => Left(2)))
+
+  const result = await a.orElse(sArrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
