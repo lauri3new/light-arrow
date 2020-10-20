@@ -24,6 +24,7 @@ interface SafeArrow<D, E, A> {
     context: D,
     error: E
     result: A,
+    failure?: Error
   }>
   runAsPromiseResult: (
     context: D
