@@ -65,7 +65,7 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
   let ctx = context || {}
   for (const op of operations) {
     try {
-    if (error) {
+    if (isLeft) {
       switch (op._tag) {
         case Ops.leftMap: {
           if (isLeft) {
@@ -78,17 +78,26 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
             error = undefined
             if (typeof op.f === 'function') {
               x = await op.f(ctx)
+              x.match(
+                (e: any) => {
+                  isLeft = true
+                  error = e
+                 },
+                (r: any) => {
+                  result = r
+                }
+              )
             } else {
               x = await op.f.runAsPromise(ctx)
-            }
-            if (x.failure) {
-              throw x.failure
-            }
-            if (x.error) {
-              isLeft = true
-              error = x.error
-            } else {
-              result = x.result
+              if (x.failure) {
+                throw x.failure
+              }
+              if (x.error) {
+                isLeft = true
+                error = x.error
+              } else {
+                result = x.result
+              }
             }
           break;
         }
@@ -98,68 +107,104 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
       case Ops.andThen: {
         if (typeof op.f === 'function') {
           x = await op.f(result)
+          x.match(
+            (e: any) => {
+              isLeft = true
+              error = e
+             },
+            (a: any) => {
+              result = a
+            }
+          )
         } else {
-          x = await op.f.__val(result)
-        }
-        x.match(
-          (e: any) => {
-            isLeft = true
-            error = e
-           },
-          (a: any) => {
-            result = a
+          x = await op.f.runAsPromise(result)
+          if (x.failure) {
+            throw x.failure
           }
-        )
+          if (x.error) {
+            isLeft = true
+            error = x.error
+          } else {
+            result = x.result
+          }
+        }
         break;
       }
       case Ops.group: {
         if (typeof op.f === 'function') {
           x = await op.f(ctx)
+          x.match(
+            (e: any) => {
+              isLeft = true
+              error = e
+             },
+            (r: any) => {
+              result = [result, r]
+            }
+          )
         } else {
           x = await op.f.runAsPromise(ctx)
-        }
-        if (x.failure) {
-          throw x.failure
-        }
-        if (x.error) {
-          isLeft = true
-          error = x.error
-        } else {
-          result = [result, x.result]
+          if (x.failure) {
+            throw x.failure
+          }
+          if (x.error) {
+            isLeft = true
+            error = x.error
+          } else {
+            result = [result, x.result]
+          }
         }
         break;
       }
       case Ops.groupFirst: {
         if (typeof op.f === 'function') {
           x = await op.f(ctx)
+          x.match(
+            (e: any) => {
+              isLeft = true
+              error = e
+             },
+            (r: any) => {
+              result = result
+            }
+          )
         } else {
           x = await op.f.runAsPromise(ctx)
-        }
-        if (x.failure) {
-          throw x.failure
-        }
-        if (x.error) {
-          isLeft = true
-          error = x.error
-        } else {
-          result = result
+          if (x.failure) {
+            throw x.failure
+          }
+          if (x.error) {
+            isLeft = true
+            error = x.error
+          } else {
+            result = result
+          }
         }
         break;
       }
       case Ops.groupSecond: {
         if (typeof op.f === 'function') {
           x = await op.f(ctx)
+          x.match(
+            (e: any) => {
+              isLeft = true
+              error = e
+             },
+            (r: any) => {
+              result = r
+            }
+          )
         } else {
           x = await op.f.runAsPromise(ctx)
-        }
-        if (x.failure) {
-          throw x.failure
-        }
-        if (x.error) {
-          isLeft = true
-          error = x.error
-        } else {
-          result = x.result
+          if (x.failure) {
+            throw x.failure
+          }
+          if (x.error) {
+            isLeft = true
+            error = x.error
+          } else {
+            result = x.result
+          }
         }
         break;
       }
@@ -167,18 +212,27 @@ async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
         x = op.f(result)
         if (typeof x === 'function') {
           x = await x(ctx)
+          x.match(
+            (e: any) => {
+              isLeft = true
+              error = e
+             },
+            (r: any) => {
+              result = r
+            }
+          )
         } else {
-          x = await x.__val(ctx)
-        }
-        x.match(
-          (e: any) => {
-            isLeft = true
-            error = e
-           },
-          (r: any) => {
-            result = r
+          x = await x.runAsPromise(ctx)
+          if (x.failure) {
+            throw x.failure
           }
-        )
+          if (x.error) {
+            isLeft = true
+            error = x.error
+          } else {
+            result = x.result
+          }
+        }
         break;
       }
       case Ops.map: {
@@ -386,17 +440,13 @@ export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E
 
 export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
 
-export const draw = <D, D2, E, A>(f:(_:D) => Arrow<D2, E, A>): Arrow<D & D2, E, A> => Arrow<D & D2, E, A>(
-  (a: D & D2) => f(a).__val(a)
-)
+export const drawAsync = <A, D = {}>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
 
-export const drawAsync = <D, A>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
+export const drawFailableAsync = <A, D = {}, E = Error>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
-export const drawFailableAsync = <D, A, E = Error>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const drawFunction = <A, D = {}>(a:(_:D) => A):Arrow<D, never, A> => Arrow((s:D) => Promise.resolve(Right(a(s))))
 
-export const drawFunction = <D, A>(a:(_:D) => A):Arrow<D, never, A> => Arrow((s:D) => Promise.resolve(Right(a(s))))
-
-export const drawFailableFunction = <D, A, E = Error>(a:(_:D) => A):Arrow<D, E, A> => Arrow((s:D) => {
+export const drawFailableFunction = <A, D = {}, E = Error>(a:(_:D) => A):Arrow<D, E, A> => Arrow((s:D) => {
   try {
     const r = a(s)
     return Promise.resolve(Right(r))
@@ -405,21 +455,15 @@ export const drawFailableFunction = <D, A, E = Error>(a:(_:D) => A):Arrow<D, E, 
   }
 })
 
-export const succeed = <A, D extends {} = {}>(a: A) => Arrow(async (_:D) => Right(a))
+export const succeed = <A, D = {}>(a: A) => Arrow(async (_:D) => Right(a))
 
-export const fail = <E, D extends {} = {}>(a: E):Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
+export const fail = <E, D = {}>(a: E):Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
 
 export const drawNullable = <A>(
   a: A | null | undefined
 ): TaskEither<null, A> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
 
 export const drawEither = <E, A>(a:Either<E, A>):TaskEither<E, A> => Arrow(async (_:{}) => a)
-
-// D
-
-export const provideSome = <D>(d: D) => <D2, E, A>(a: Arrow<D & D2, E, A>): Arrow<D2, E, A> => Arrow<D2, E, A>(
-  (ds: D2) => a.__val({ ...ds, ...d })
-)
 
 // combinators
 
@@ -464,10 +508,12 @@ export function andThen(...as: any[]) {
 }
 
 export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.reduce(
-  (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c])), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
+  (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c] )), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n < 1 ? a : a.orElse(retry(n - 1)(a)))
+export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
+
+export const repeat = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
 
 // utility types
 
