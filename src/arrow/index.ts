@@ -1,9 +1,5 @@
-import { performance } from 'perf_hooks'
-import {
-  Either, Left, Right
-} from '../either/index'
-
-// interface
+import { List, list } from '@funkia/list'
+import { Either, Left, Right } from '../either'
 
 export interface Arrow<D, E, A> {
   // constructor
@@ -19,14 +15,14 @@ export interface Arrow<D, E, A> {
   group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>
   groupFirst: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, A>
   groupSecond: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, B>
-  // depencendies
-  provide: <D2>(_:D) => Arrow<{}, E, A>
   // run
   runAsPromise: (
     context: D
   ) => Promise<{
     context: D,
-    result: A
+    error: E
+    result: A,
+    failure?: Error
   }>
   runAsPromiseResult: (
     context: D
@@ -48,134 +44,336 @@ export interface Arrow<D, E, A> {
   groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
 }
 
-// implementation
+enum Ops {
+  map = 1,
+  flatMap = 2,
+  leftMap = 3,
+  biMap = 4,
+  andThen = 5,
+  orElse = 6,
+  group = 7,
+  groupFirst = 8,
+  groupSecond = 9,
+  init = 10
+}
 
-export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A> => ({
-  __val,
-  map: <B>(f: (_:A) => B):Arrow<D, E, B> => Arrow<D, E, B>((_:D) => __val(_).then(a => a.map(f))),
-  leftMap: <E2>(f: (_:E) => E2):Arrow<D, E2, A> => Arrow<D, E2, A>((_:D) => __val(_).then(a => a.leftMap(f))),
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>((_:D) => __val(_).then(a => a.biMap(f, g))),
-  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>):Arrow<D & D2, E | E2, B> => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2).__val(a)
-    ))
-  ),
-  provide: (ds: D) => Arrow((d) => __val(ds)),
-  orElse: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>(
-    (c: D & D2) => __val(c)
-      .then(
-        (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
-          e => f.__val(c),
-          a => Promise.resolve(Right(a))
+async function _run(context: any, operations: List<{ _tag: Ops, f: any }>) {
+  let result: any
+  let x: any
+  let isLeft: boolean = false
+  let error: any
+  let ctx = context || {}
+  for (const op of operations) {
+    try {
+    if (error) {
+      switch (op._tag) {
+        case Ops.leftMap: {
+          if (isLeft) {
+            error = op.f(error) 
+          }
+          break;
+        }
+        case Ops.orElse: {
+            isLeft = false
+            error = undefined
+            if (typeof op.f === 'function') {
+              x = await op.f(ctx)
+            } else {
+              x = await op.f.runAsPromise(ctx)
+            }
+            if (x.failure) {
+              throw x.failure
+            }
+            if (x.error) {
+              isLeft = true
+              error = x.error
+            } else {
+              result = x.result
+            }
+          break;
+        }
+      }
+    } else {
+    switch (op._tag) {
+      case Ops.andThen: {
+        if (typeof op.f === 'function') {
+          x = await op.f(result)
+        } else {
+          x = await op.f.__val(result)
+        }
+        x.match(
+          (e: any) => {
+            isLeft = true
+            error = e
+           },
+          (a: any) => {
+            result = a
+          }
         )
-      )
-  ),
-  andThen: <E2, B>(f: Arrow<A, E2, B>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(s2)
-    ))
-  ),
-  group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(a).then((c) => c.map((b) => [s2, b]))
-    ))
-  ),
-  groupFirst: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, A>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(a).then(() => Right(s2))
-    ))
-  ),
-  groupSecond: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f.__val(a)
-    ))
-  ),
-  runAsPromiseResult: (
-    context: D
-  ) => __val(context).then(
-    (eitherD) => eitherD.match(
-      error => { throw error },
-      some => some
-    )
-  ),
-  runAsPromise: (
-    context: D
-  ) => __val(context).then(
-    (eitherD) => eitherD.match(
-      error => { throw error },
-      result => ({
+        break;
+      }
+      case Ops.group: {
+        if (typeof op.f === 'function') {
+          x = await op.f(ctx)
+        } else {
+          x = await op.f.runAsPromise(ctx)
+        }
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = [result, x.result]
+        }
+        break;
+      }
+      case Ops.groupFirst: {
+        if (typeof op.f === 'function') {
+          x = await op.f(ctx)
+        } else {
+          x = await op.f.runAsPromise(ctx)
+        }
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = result
+        }
+        break;
+      }
+      case Ops.groupSecond: {
+        if (typeof op.f === 'function') {
+          x = await op.f(ctx)
+        } else {
+          x = await op.f.runAsPromise(ctx)
+        }
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = x.result
+        }
+        break;
+      }
+      case Ops.flatMap: {
+        x = op.f(result)
+        if (typeof x === 'function') {
+          x = await x(ctx)
+        } else {
+          x = await x.__val(ctx)
+        }
+        x.match(
+          (e: any) => {
+            isLeft = true
+            error = e
+           },
+          (r: any) => {
+            result = r
+          }
+        )
+        break;
+      }
+      case Ops.map: {
+        result = op.f(result)
+        break;
+      }
+      case Ops.init: {
+        x = await op.f(ctx)
+        x.match(
+          (e: any) => {
+            isLeft = true
+            error = e
+           },
+          (r: any) => {
+            result = r
+          }
+        )
+        break;
+      }
+    }
+  }
+    } catch (e) {
+      return {
+        failure: e,
+        error,
         result,
         context
-      })
-    )
-  ),
-  run: <B1, E2, F, D2>(
-    context: D,
-    mapResult: (_:A) => B1,
-    mapError: (_:E) => E2,
-    handleFailure: (_?: Error) => F,
-    handleContext?: (_:D) => D2
-  ) => {
-    __val(context).then(
-      (eitherD) => {
-          eitherD.match(
-            none => mapError(none),
-            some => mapResult(some)
-          )
-          if (handleContext) {
-            handleContext(context)
-          }
+      }
+    }
+  }
+
+  return {
+    error,
+    result,
+    context
+  }
+}
+
+function SArrow<D, E, A>(__val?: (_:D) => Promise<Either<E, A>>, initialOps?: List<any>, initialContext?: any):Arrow<D, E, A> {
+  let operations = initialOps ? initialOps : list<{ _tag: Ops, f: any  }>({
+    _tag: Ops.init,
+    f: __val
+  })
+  let ctx: any = initialContext
+
+  return {
+    __val: __val ? __val : initialOps?.nth(0)?.f,
+    map<B>(f: (_:A) => B):Arrow<D, E, B> {
+      return SArrow<D, E, B>(undefined, operations.append({
+        _tag: Ops.map,
+        f
+      }))
+    },
+    biMap<E2, B>(f: (_:E) => E2, g: (_:A) => B):Arrow<D, E2, B> {
+      return SArrow<D, E2, B>(undefined, operations.append({
+        _tag: Ops.map,
+        f: g
+      }).append({
+        _tag: Ops.leftMap,
+        f
+      }))
+    },
+    leftMap<E2>(f: (_:E) => E2):Arrow<D, E2, A> {
+      return SArrow<D, E2, A>(undefined, operations.append({
+        _tag: Ops.leftMap,
+        f
+      }))
+    },
+    flatMap<D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.flatMap,
+        f
+      }))
+    },
+    flatMapF<D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.flatMap,
+        f
+      }))
+    },
+    orElse<D2, E2, B>(f:Arrow<D2, E2, B>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.orElse,
+        f
+      }))
+    },
+    orElseF<D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.orElse,
+        f
+      }))
+    },
+    andThen<E2, B>(f:Arrow<A, E2, B>) {
+      return SArrow<D, E2, B>(undefined, operations.append({
+        _tag: Ops.andThen,
+        f
+      }))
+    },
+    andThenF<E2, B>(f:(_:A) => Promise<Either<E2, B>>) {
+      return SArrow<D, E2, B>(undefined, operations.append({
+        _tag: Ops.andThen,
+        f
+      }))
+    },
+    group<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
+      return SArrow<D & D2, E2, [A, B]>(undefined, operations.append({
+        _tag: Ops.group,
+        f
+      }))
+    },
+    groupF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
+      return SArrow<D & D2, E2, [A, B]>(undefined, operations.append({
+        _tag: Ops.group,
+        f
+      }))
+    },
+    groupFirst<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
+      return SArrow<D & D2, E2, A>(undefined, operations.append({
+        _tag: Ops.groupFirst,
+        f
+      }))
+    },
+    groupFirstF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
+      return SArrow<D & D2, E2, A>(undefined, operations.append({
+        _tag: Ops.groupFirst,
+        f
+      }))
+    },
+    groupSecond<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.groupSecond,
+        f
+      }))
+    },
+    groupSecondF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
+      return SArrow<D & D2, E2, B>(undefined, operations.append({
+        _tag: Ops.groupSecond,
+        f
+      }))
+    },
+    async runAsPromiseResult(
+      c: D
+    ) {
+      const {
+        error,
+        failure,
+        result
+      } = await _run(ctx || c, operations)
+      if (error || failure) {
+        throw error || failure
+      }
+      return result
+    },
+    async run<B1, E2, F, D2>(
+      c: D,
+      mapResult: (_:A) => B1,
+      mapError: (_:E) => E2,
+      handleFailure: (_?: Error) => F,
+      handleContext?: (_:D) => D2
+    ) {
+        const {
+          error,
+          result,
+          context,
+          failure
+        } = await _run(ctx || c, operations)
+        if (failure) {
+          handleFailure(failure)
+        } else if (error) {
+          mapError(error)
+        } else {
+          mapResult(result)
         }
-    )
-      .catch(
-        handleFailure
-      )
-  },
-  flatMapF: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2)(a)
-    ))
-  ),
-  orElseF: <D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E2, A | B>(
-    (c: D & D2) => __val(c)
-      .then(
-        (eitherA): Promise<Either<E2, A | B>> => eitherA.match(
-          e => f(c),
-          a => Promise.resolve(Right(a))
-        )
-      )
-  ),
-  andThenF: <E2, B>(f:(_:A) => Promise<Either<E2, B>>):Arrow<D, E | E2, B> => Arrow<D, E | E2, B>(
-    (a: D) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(s2)
-    ))
-  ),
-  groupF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, [A, B]>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, [A, B]>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(a).then((c) => c.map((b) => [s2, b]))
-    ))
-  ),
-  groupFirstF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, A>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(a).then(() => Right(s2))
-    ))
-  ),
-  groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>(
-    (a: D & D2) => __val(a).then((eitherD2): Promise<Either<E | E2, B>> => eitherD2.match(
-      e => Promise.resolve(Left(e)),
-      s2 => f(a)
-    ))
-  ),
-})
+        if (handleContext) {
+          handleContext(context)
+        }
+    },
+    async runAsPromise(
+      c: D
+    ) {
+      const {
+        failure,
+        error,
+        result,
+        context
+      } = await _run(ctx || c, operations)
+      return {
+        result,
+        error,
+        context,
+        failure
+      }
+    }
+  }
+}
 
 // type aliases and constructors
 
@@ -183,6 +381,8 @@ export type TaskEither<E, A> = Arrow<{}, E, A>
 export type Task<A> = Arrow<{}, never, A>
 
 // constructors
+
+export const Arrow = <D, E, A>(__val: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A> => SArrow(__val)
 
 export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
 
@@ -274,28 +474,3 @@ export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C>
 export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer A> ? A : never
 export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : never
 export type ArrowsD<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
-
-let a = Arrow<unknown, any, number>(async () => Right(1))
-const sleep = () => new Promise((res) => setTimeout(() => { res() }, 1))
-console.log(performance.now())
-for (let i = 0; i < 5000; i++)
-{
-  a = a.map((b: number) => b + 1).flatMap((a) => Arrow(async () => {
-    // await sleep()
-    return Right(a + 1)
-  }))
-}
-
-a.run(
-  {},
-  (r) => {
-    console.log(performance.now())
-    console.log('wahoo', r)
-    const used = process.memoryUsage().heapUsed / 1024 / 1024;
-    console.log(`The script uses approximately ${Math.round(used * 100) / 100} MB`);
-  },
-  (e) => console.log('doh', e),
-  (f) => console.log('uhoh', f),
-  (c) => console.log('ctx', c)
-)
-setImmediate(() => console.log('hello'))
