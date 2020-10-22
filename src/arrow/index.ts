@@ -565,4 +565,4 @@ export const repeat = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C
 
 export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer A> ? A : never
 export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : never
-export type ArrowsD<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
+export type ArrowsDependencies<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
