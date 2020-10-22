@@ -1,45 +1,45 @@
 import { List, list } from '@funkia/list'
 import { Either, Left, Right } from '../either'
 
-export interface Arrow<D, E, A> {
+export interface Arrow<D, E, R> {
   // monad
-  map: <B>(f: (_:A) => B) => Arrow<D, E, B>
-  flatMap: <D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) => Arrow<D & D2, E | E2, B>
-  leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, A>
-  biMap: <E2, B>(f: (_:E) => E2, g: (_:A) => B) => Arrow<D, E2, B>
+  map: <R2>(f: (_:R) => R2) => Arrow<D, E, R2>
+  flatMap: <D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
+  leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, R>
+  biMap: <E2, R2>(f: (_:E) => E2, g: (_:R) => R2) => Arrow<D, E2, R2>
   // combinators
-  orElse: <D2, E2, B>(f:Arrow<D2, E2, B>) => Arrow<D & D2, E2, A | B>
-  andThen: <E2, B>(f: Arrow<A, E2, B>) => Arrow<D, E | E2, B>
-  group: <D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) => Arrow<D & D2, E | E2, [A, B]>
-  groupFirst: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, A>
-  groupSecond: <D2, E2, B>(f:Arrow<Partial<D>& D2, E2, B>) => Arrow<D & D2, E | E2, B>
+  orElse: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E2, R | R2>
+  andThen: <E2, R2>(f: Arrow<R, E2, R2>) => Arrow<D, E | E2, R2>
+  group: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
+  groupFirst: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R>
+  groupSecond: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
   // run
   runAsPromise: (
     context: D
   ) => Promise<{
     context: D,
     error: E
-    result: A,
+    result: R,
     failure?: Error
   }>
   runAsPromiseResult: (
     context: D
-  ) => Promise<A>
-  run: <B1, E2, F, D2>(
+  ) => Promise<R>
+  run: <R21, E2, F, D2>(
     context: D,
-    mapResult: (_:A) => B1,
+    mapResult: (_:R) => R21,
     mapError: (_:E) => E2,
     handleFailure?: (_: Error) => F,
     handleContext?: (_:D) => D2
   ) => void
   // flatMapF
-  flatMapF: <D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
+  flatMapF: <D2, E2, R2>(f: (_:R) => (_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
   // combinatorsF
-  orElseF: <D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E2, A | B>
-  andThenF: <E2, B>(_:(_:A) => Promise<Either<E2, B>>) => Arrow<D, E | E2, B>
-  groupF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, [A, B]>
-  groupFirstF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, A>
-  groupSecondF: <D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) => Arrow<D & D2, E | E2, B>
+  orElseF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E2, R | R2>
+  andThenF: <E2, R2>(_:(_:R) => Promise<Either<E2, R2>>) => Arrow<D, E | E2, R2>
+  groupF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, [R, R2]>
+  groupFirstF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R>
+  groupSecondF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
 }
 
 enum Ops {
@@ -315,21 +315,21 @@ async function _run(context: any, operations: List<Operation>) {
   }
 }
 
-function SArrow<D, E, A>(f?: (_:D) => Promise<Either<E, A>>, initialOps?: List<any>, initialContext?: any):Arrow<D, E, A> {
+function arrow<D, E, R>(f?: (_:D) => Promise<Either<E, R>>, initialOps?: List<any>, initialContext?: any):Arrow<D, E, R> {
   let operations = initialOps ? initialOps : list<{ _tag: Ops, f: any  }>({
     _tag: Ops.init,
     f
   })
   let ctx: any = initialContext
   return {
-    map<B>(f: (_:A) => B):Arrow<D, E, B> {
-      return SArrow<D, E, B>(undefined, operations.append({
+    map<R2>(f: (_:R) => R2):Arrow<D, E, R2> {
+      return arrow<D, E, R2>(undefined, operations.append({
         _tag: Ops.map,
         f
       }))
     },
-    biMap<E2, B>(f: (_:E) => E2, g: (_:A) => B):Arrow<D, E2, B> {
-      return SArrow<D, E2, B>(undefined, operations.append({
+    biMap<E2, R2>(f: (_:E) => E2, g: (_:R) => R2):Arrow<D, E2, R2> {
+      return arrow<D, E2, R2>(undefined, operations.append({
         _tag: Ops.map,
         f: g
       }).append({
@@ -337,80 +337,80 @@ function SArrow<D, E, A>(f?: (_:D) => Promise<Either<E, A>>, initialOps?: List<a
         f
       }))
     },
-    leftMap<E2>(f: (_:E) => E2):Arrow<D, E2, A> {
-      return SArrow<D, E2, A>(undefined, operations.append({
+    leftMap<E2>(f: (_:E) => E2):Arrow<D, E2, R> {
+      return arrow<D, E2, R>(undefined, operations.append({
         _tag: Ops.leftMap,
         f
       }))
     },
-    flatMap<D2, E2, B>(f: (_:A) => Arrow<D2, E2, B>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    flatMap<D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.flatMap,
         f
       }))
     },
-    flatMapF<D2, E2, B>(f: (_:A) => (_:D2) => Promise<Either<E2, B>>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    flatMapF<D2, E2, R2>(f: (_:R) => (_:D2) => Promise<Either<E2, R2>>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.flatMap,
         f
       }))
     },
-    orElse<D2, E2, B>(f:Arrow<D2, E2, B>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    orElse<D2, E2, R2>(f:Arrow<D2, E2, R2>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.orElse,
         f
       }))
     },
-    orElseF<D2, E2, B>(f:(_:D2) => Promise<Either<E2, B>>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    orElseF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.orElse,
         f
       }))
     },
-    andThen<E2, B>(f:Arrow<A, E2, B>) {
-      return SArrow<D, E2, B>(undefined, operations.append({
+    andThen<E2, R2>(f:Arrow<R, E2, R2>) {
+      return arrow<D, E2, R2>(undefined, operations.append({
         _tag: Ops.andThen,
         f
       }))
     },
-    andThenF<E2, B>(f:(_:A) => Promise<Either<E2, B>>) {
-      return SArrow<D, E2, B>(undefined, operations.append({
+    andThenF<E2, R2>(f:(_:R) => Promise<Either<E2, R2>>) {
+      return arrow<D, E2, R2>(undefined, operations.append({
         _tag: Ops.andThen,
         f
       }))
     },
-    group<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
-      return SArrow<D & D2, E2, [A, B]>(undefined, operations.append({
+    group<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+      return arrow<D & D2, E2, [R, R2]>(undefined, operations.append({
         _tag: Ops.group,
         f
       }))
     },
-    groupF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
-      return SArrow<D & D2, E2, [A, B]>(undefined, operations.append({
+    groupF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+      return arrow<D & D2, E2, [R, R2]>(undefined, operations.append({
         _tag: Ops.group,
         f
       }))
     },
-    groupFirst<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
-      return SArrow<D & D2, E2, A>(undefined, operations.append({
+    groupFirst<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+      return arrow<D & D2, E2, R>(undefined, operations.append({
         _tag: Ops.groupFirst,
         f
       }))
     },
-    groupFirstF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
-      return SArrow<D & D2, E2, A>(undefined, operations.append({
+    groupFirstF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+      return arrow<D & D2, E2, R>(undefined, operations.append({
         _tag: Ops.groupFirst,
         f
       }))
     },
-    groupSecond<D2, E2, B>(f:Arrow<Partial<D> & D2, E2, B>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    groupSecond<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.groupSecond,
         f
       }))
     },
-    groupSecondF<D2, E2, B>(f:(_:Partial<D> & D2) => Promise<Either<E2, B>>) {
-      return SArrow<D & D2, E2, B>(undefined, operations.append({
+    groupSecondF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+      return arrow<D & D2, E2, R2>(undefined, operations.append({
         _tag: Ops.groupSecond,
         f
       }))
@@ -428,9 +428,9 @@ function SArrow<D, E, A>(f?: (_:D) => Promise<Either<E, A>>, initialOps?: List<a
       }
       return result
     },
-    async run<B1, E2, F, D2>(
+    async run<R21, E2, F, D2>(
       c: D,
-      mapResult: (_:A) => B1,
+      mapResult: (_:R) => R21,
       mapError: (_:E) => E2,
       handleFailure?: (_: Error) => F,
       handleContext?: (_:D) => D2
@@ -477,22 +477,22 @@ function SArrow<D, E, A>(f?: (_:D) => Promise<Either<E, A>>, initialOps?: List<a
 
 // type aliases and constructors
 
-export type TaskEither<E, A> = Arrow<{}, E, A>
-export type Task<A> = Arrow<{}, never, A>
+export type TaskEither<E, R> = Arrow<{}, E, R>
+export type Task<R> = Arrow<{}, never, R>
 
 // constructors
 
-export const Arrow = <D, E, A>(f: (_:D) => Promise<Either<E, A>>):Arrow<D, E, A> => SArrow(f)
+export const Arrow = <D, E, R>(f: (_:D) => Promise<Either<E, R>>):Arrow<D, E, R> => arrow(f)
 
-export type Draw<D, A, B, C> = (a: (A)) => Arrow<D, B, C>
+export type Draw<D, R, R2, C> = (a: (R)) => Arrow<D, R2, C>
 
-export const drawAsync = <A, D = {}>(a:(_:D) => Promise<A>):Arrow<D, never, A> => Arrow((s: D) => a(s).then(Right))
+export const drawAsync = <R, D = {}>(a:(_:D) => Promise<R>):Arrow<D, never, R> => Arrow((s: D) => a(s).then(Right))
 
-export const drawFailableAsync = <A, D = {}, E = Error>(a:(_:D) => Promise<A>):Arrow<D, E, A> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
+export const drawFailableAsync = <R, D = {}, E = Error>(a:(_:D) => Promise<R>):Arrow<D, E, R> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
-export const drawFunction = <A, D = {}>(a:(_:D) => A):Arrow<D, never, A> => Arrow((s:D) => Promise.resolve(Right(a(s))))
+export const drawFunction = <R, D = {}>(a:(_:D) => R):Arrow<D, never, R> => Arrow((s:D) => Promise.resolve(Right(a(s))))
 
-export const drawFailableFunction = <A, D = {}, E = Error>(a:(_:D) => A):Arrow<D, E, A> => Arrow((s:D) => {
+export const drawFailableFunction = <R, D = {}, E = Error>(a:(_:D) => R):Arrow<D, E, R> => Arrow((s:D) => {
   try {
     const r = a(s)
     return Promise.resolve(Right(r))
@@ -501,30 +501,30 @@ export const drawFailableFunction = <A, D = {}, E = Error>(a:(_:D) => A):Arrow<D
   }
 })
 
-export const succeed = <A, D = {}>(a: A) => Arrow(async (_:D) => Right(a))
+export const succeed = <R, D = {}>(a: R) => Arrow(async (_:D) => Right(a))
 
 export const fail = <E, D = {}>(a: E):Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
 
-export const drawNullable = <A>(
-  a: A | null | undefined
-): TaskEither<null, A> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
+export const drawNullable = <R>(
+  a: R | null | undefined
+): TaskEither<null, R> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
 
-export const drawEither = <E, A>(a:Either<E, A>):TaskEither<E, A> => Arrow(async (_:{}) => a)
+export const drawEither = <E, R>(a:Either<E, R>):TaskEither<E, R> => Arrow(async (_:{}) => a)
 
 // combinators
 
-export function orElse <D1, E1, A1, D2, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>): Arrow<D1 & D2, E2, A1 | A2>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>): Arrow<D1 & D2 & D3, E3, A1 | A2 | A3>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>): Arrow<D1 & D2 & D3 & D4, E4, A1 | A2 | A3 | A4>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>): Arrow<D1 & D2 & D3 & D4 & D5, E5, A1 | A2 | A3 | A4 | A5>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E6, A1 | A2 | A3 | A4 | A5 | A6>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E7, A1 | A2 | A3 | A4 | A5 | A6 | A7>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E8, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8>
-export function orElse <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<D2, E2, A2>, c: Arrow<D3, E3, A3>, d: Arrow<D4, E4, A4>, e: Arrow<D5, E5, A5>, f: Arrow<D6, E6, A6>, g: Arrow<D7, E7, A7>, h: Arrow<D8, E8, A8>, i: Arrow<D9, E9, A9>)
-  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E9, A1 | A2 | A3 | A4 | A5 | A6 | A7 | A8 | A9>
+export function orElse <D1, E1, R1, D2, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E2, R1 | R2>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>): Arrow<D1 & D2 & D3, E3, R1 | R2 | R3>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>): Arrow<D1 & D2 & D3 & D4, E4, R1 | R2 | R3 | R4>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>): Arrow<D1 & D2 & D3 & D4 & D5, E5, R1 | R2 | R3 | R4 | R5>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6, E6, R1 | R2 | R3 | R4 | R5 | R6>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E7, R1 | R2 | R3 | R4 | R5 | R6 | R7>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>, h: Arrow<D8, E8, R8>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E8, R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8>
+export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8, D9, E9, R9>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>, h: Arrow<D8, E8, R8>, i: Arrow<D9, E9, R9>)
+  : Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E9, R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9>
 export function orElse(...as: any[]) {
   if (as.length === 1) return as[0]
   if (as.length === 2) return as[0].orElse(as[1])
@@ -533,18 +533,18 @@ export function orElse(...as: any[]) {
   return orElse(a.orElse(b), ...aas)
 }
 
-export function andThen <D1, E1, A1, E2, A2>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>): Arrow<D1, E1 | E2, A2>
-export function andThen <D1, E1, A1, E2, A2, E3, A3>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>): Arrow<D1, E1 | E2 | E3, A3>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>): Arrow<D1, E1 | E2 | E3 | E4, A4>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>, e: Arrow<A4, E5, A5>): Arrow<D1, E1 | E2 | E3 | E4 | E5, A5>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>, e: Arrow<A4, E5, A5>, f: Arrow<A5, E6, A6>)
-  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6, A6>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>, e: Arrow<A4, E5, A5>, f: Arrow<A5, E6, A6>, g: Arrow<A6, E7, A7>)
-  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7, A7>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>, e: Arrow<A4, E5, A5>, f: Arrow<A5, E6, A6>, g: Arrow<A6, E7, A7>, h: Arrow<A7, E8, A8>)
-  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, A8>
-export function andThen <D1, E1, A1, D2, E2, A2, D3, E3, A3, D4, E4, A4, D5, E5, A5, D6, E6, A6, D7, E7, A7, D8, E8, A8, D9, E9, A9>(a: Arrow<D1, E1, A1>, b: Arrow<A1, E2, A2>, c: Arrow<A2, E3, A3>, d: Arrow<A3, E4, A4>, e: Arrow<A4, E5, A5>, f: Arrow<A5, E6, A6>, g: Arrow<A6, E7, A7>, h: Arrow<A7, E8, A8>, i: Arrow<A8, E9, A9>)
-  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, A9>
+export function andThen <D1, E1, R1, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>): Arrow<D1, E1 | E2, R2>
+export function andThen <D1, E1, R1, E2, R2, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>): Arrow<D1, E1 | E2 | E3, R3>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>): Arrow<D1, E1 | E2 | E3 | E4, R4>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>, e: Arrow<R4, E5, R5>): Arrow<D1, E1 | E2 | E3 | E4 | E5, R5>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>, e: Arrow<R4, E5, R5>, f: Arrow<R5, E6, R6>)
+  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6, R6>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>, e: Arrow<R4, E5, R5>, f: Arrow<R5, E6, R6>, g: Arrow<R6, E7, R7>)
+  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7, R7>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>, e: Arrow<R4, E5, R5>, f: Arrow<R5, E6, R6>, g: Arrow<R6, E7, R7>, h: Arrow<R7, E8, R8>)
+  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, R8>
+export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8, D9, E9, R9>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>, e: Arrow<R4, E5, R5>, f: Arrow<R5, E6, R6>, g: Arrow<R6, E7, R7>, h: Arrow<R7, E8, R8>, i: Arrow<R8, E9, R9>)
+  : Arrow<D1, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, R9>
 export function andThen(...as: any[]) {
   if (as.length === 1) return as[0]
   if (as.length === 2) return as[0].andThen(as[1])
@@ -553,16 +553,16 @@ export function andThen(...as: any[]) {
   return andThen(a.andThen(b), ...aas)
 }
 
-export const sequence = <D, B, C>(as: Arrow<D, B, C>[]): Arrow<D, B, C[]> => as.reduce(
-  (acc, arrowA) => acc.flatMap((a) => arrowA.map(c => [...a, c] )), Arrow<D, B, C[]>(async (_: D) => Right<C[]>([]))
+export const sequence = <D, R2, C>(as: Arrow<D, R2, C>[]): Arrow<D, R2, C[]> => as.reduce(
+  (acc, arrowR) => acc.flatMap((a) => arrowR.map(c => [...a, c] )), Arrow<D, R2, C[]>(async (_: D) => Right<C[]>([]))
 )
 
-export const retry = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
+export const retry = (n: number) => <D, R2, C>(a: Arrow<D, R2, C>): Arrow<D, R2, C> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
 
-export const repeat = (n: number) => <D, B, C>(a: Arrow<D, B, C>): Arrow<D, B, C> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
+export const repeat = (n: number) => <D, R2, C>(a: Arrow<D, R2, C>): Arrow<D, R2, C> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
 
 // utility types
 
-export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer A> ? A : never
+export type ArrowsRight<ARROW> = ARROW extends Arrow<any, any, infer R> ? R : never
 export type ArrowsLeft<ARROW> = ARROW extends Arrow<any, infer E, any> ? E : never
 export type ArrowsDependencies<ARROW> = ARROW extends Arrow<infer D, any, any> ? D : never
