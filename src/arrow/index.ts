@@ -484,7 +484,7 @@ export type Task<R> = Arrow<{}, never, R>
 
 export const Arrow = <D, E, R>(f: (_:D) => Promise<Either<E, R>>):Arrow<D, E, R> => arrow(f)
 
-export type Draw<D, R, R2, C> = (a: (R)) => Arrow<D, R2, C>
+export const draw = <D, D2, E2, R2>(f: (_:D) => Arrow<D2, E2, R2>) => Arrow<D, never, D>(async a => Right(a)).flatMap(f)
 
 export const drawAsync = <R, D = {}>(a:(_:D) => Promise<R>):Arrow<D, never, R> => Arrow((s: D) => a(s).then(Right))
 

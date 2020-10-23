@@ -1,6 +1,6 @@
 
 import {
-  Arrow, drawAsync, drawEither,
+  Arrow, draw, drawAsync, drawEither,
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
   fail, succeed
@@ -95,4 +95,17 @@ it('arrow should fail', async () => {
     .runAsPromise({})
   expect(error).toEqual(1)
   expect(result).toEqual(undefined)
+})
+
+it('arrow should draw from dependencies', async () => {
+  const client = {
+    send: (name: string) => succeed('success')
+  }
+
+  type Client = typeof client
+
+  const sendViaClient = (name: string) => draw((client: Client) => client.send(name))
+  const result = await sendViaClient('jj')
+    .runAsPromiseResult(client)
+  expect(result).toEqual('success')
 })
