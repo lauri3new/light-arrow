@@ -5,14 +5,14 @@ import {
 } from '../arrow/index'
 import { Left, Right } from '../either'
 import {
-  Context, HttpMethods, isNotFound, isResult, notFound, Result, runResponse
+  Context, HttpMethods, isNotFound, isResult, NotFound, Result, runResponse
 } from './result'
 
-export type httpRoutes<A extends Context = Context> = Arrow<A, notFound | Result, Result> | Arrow<A, notFound, Result>
-export type httpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
+export type HttpRoutes<A extends Context = Context> = Arrow<A, NotFound | Result, Result> | Arrow<A, NotFound, Result>
+export type HttpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
 
-export const bindApp = <A>(httpApp: httpApp<A & Context>, capabilities: A) => (app: Express) => {
-  app.use('*', (req, res) => httpApp({ req, ...capabilities }).then((result) => {
+export const bindApp = <A>(HttpApp: HttpApp<A & Context>, capabilities: A) => (app: Express) => {
+  app.use('*', (req, res) => HttpApp({ req, ...capabilities }).then((result) => {
     runResponse(res, result)
   }))
   return {
@@ -22,11 +22,11 @@ export const bindApp = <A>(httpApp: httpApp<A & Context>, capabilities: A) => (a
 }
 
 export const seal = <A extends Context>(
-  a: httpRoutes<A>,
-  onNotFound: (_: notFound | Result) => Result,
+  a: HttpRoutes<A>,
+  onNotFound: (_: NotFound | Result) => Result,
   onError: (e?: Error) => Result
-): httpApp<A> => (ctx: A) => a.runAsPromiseResult(ctx)
-    .catch((b: notFound | Result | Error) => {
+): HttpApp<A> => (ctx: A) => a.runAsPromiseResult(ctx)
+    .catch((b: NotFound | Result | Error) => {
       if (isNotFound(b)) {
         return onNotFound(b)
       } if (isResult(b)) {
@@ -37,7 +37,7 @@ export const seal = <A extends Context>(
 
 const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, A extends Context = Context>(
   path: string
-): Arrow<A, notFound | Result, A & { params: B }> => Arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
+): Arrow<A, NotFound | Result, A & { params: B }> => Arrow<A, NotFound | Result, A & { params: B }>(async (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
     return Right(({ ...ctx, params: _match.params as B }))

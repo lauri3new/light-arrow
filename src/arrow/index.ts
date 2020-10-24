@@ -475,24 +475,19 @@ function arrow<D, E, R>(f?: (_:D) => Promise<Either<E, R>>, initialOps?: List<an
   }
 }
 
-// type aliases and constructors
-
-export type TaskEither<E, R> = Arrow<{}, E, R>
-export type Task<R> = Arrow<{}, never, R>
-
 // constructors
 
-export const Arrow = <D, E, R>(f: (_:D) => Promise<Either<E, R>>):Arrow<D, E, R> => arrow(f)
+export const Arrow = <D, E, R>(f: (_:D) => Promise<Either<E, R>>): Arrow<D, E, R> => arrow(f)
 
-export const draw = <D, D2, E2, R2>(f: (_:D) => Arrow<D2, E2, R2>) => Arrow<D, never, D>(async a => Right(a)).flatMap(f)
+export const draw = <D, D2, E, R>(f: (_:D) => Arrow<D2, E, R>): Arrow<D & D2, E, R> => Arrow<D, never, D>(async a => Right(a)).flatMap(f)
 
-export const drawAsync = <R, D = {}>(a:(_:D) => Promise<R>):Arrow<D, never, R> => Arrow((s: D) => a(s).then(Right))
+export const drawAsync = <R, D = {}>(a:(_:D) => Promise<R>): Arrow<D, never, R> => Arrow((s: D) => a(s).then(Right))
 
 export const drawFailableAsync = <R, D = {}, E = Error>(a:(_:D) => Promise<R>):Arrow<D, E, R> => Arrow((s:D) => a(s).then(Right).catch((e) => Left<E>(e)))
 
-export const drawFunction = <R, D = {}>(a:(_:D) => R):Arrow<D, never, R> => Arrow((s:D) => Promise.resolve(Right(a(s))))
+export const drawFunction = <R, D = {}>(a:(_:D) => R): Arrow<D, never, R> => Arrow((s:D) => Promise.resolve(Right(a(s))))
 
-export const drawFailableFunction = <R, D = {}, E = Error>(a:(_:D) => R):Arrow<D, E, R> => Arrow((s:D) => {
+export const drawFailableFunction = <R, D = {}, E = Error>(a:(_:D) => R): Arrow<D, E, R> => Arrow((s:D) => {
   try {
     const r = a(s)
     return Promise.resolve(Right(r))
@@ -501,15 +496,15 @@ export const drawFailableFunction = <R, D = {}, E = Error>(a:(_:D) => R):Arrow<D
   }
 })
 
-export const succeed = <R, D = {}>(a: R) => Arrow(async (_:D) => Right(a))
+export const succeed = <R, D = {}>(a: R): Arrow<D, never, R> => Arrow(async (_:D) => Right(a))
 
-export const fail = <E, D = {}>(a: E):Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
+export const fail = <E, D = {}>(a: E): Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
 
 export const drawNullable = <R>(
   a: R | null | undefined
-): TaskEither<null, R> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
+): Arrow<{}, null, R> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
 
-export const drawEither = <E, R>(a:Either<E, R>):TaskEither<E, R> => Arrow(async (_:{}) => a)
+export const drawEither = <E, R>(a:Either<E, R>):Arrow<{}, E, R> => Arrow(async (_:{}) => a)
 
 // combinators
 
@@ -553,13 +548,13 @@ export function andThen(...as: any[]) {
   return andThen(a.andThen(b), ...aas)
 }
 
-export const sequence = <D, R2, C>(as: Arrow<D, R2, C>[]): Arrow<D, R2, C[]> => as.reduce(
-  (acc, arrowR) => acc.flatMap((a) => arrowR.map(c => [...a, c] )), Arrow<D, R2, C[]>(async (_: D) => Right<C[]>([]))
+export const sequence = <D, E, R>(as: Arrow<D, E, R>[]): Arrow<D, E, R[]> => as.reduce(
+  (acc, arrowR) => acc.flatMap((a) => arrowR.map(c => [...a, c] )), Arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
 )
 
-export const retry = (n: number) => <D, R2, C>(a: Arrow<D, R2, C>): Arrow<D, R2, C> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
+export const retry = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
 
-export const repeat = (n: number) => <D, R2, C>(a: Arrow<D, R2, C>): Arrow<D, R2, C> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
+export const repeat = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
 
 // utility types
 

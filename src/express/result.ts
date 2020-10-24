@@ -1,4 +1,5 @@
 import { CookieOptions, Request, Response } from 'express'
+import { Arrow, draw, succeed } from '../arrow'
 
 export interface Cookie extends CookieOptions {
   name: string
@@ -19,9 +20,9 @@ export interface Context {
   req: Request
 }
 
-export type notFound = { path: string, method: string }
+export type NotFound = { path: string, method: string }
 
-export function isNotFound(a: notFound | any): a is notFound {
+export function isNotFound(a: NotFound | any): a is NotFound {
   return a?.path !== undefined && a?.method !== undefined
 }
 
@@ -141,3 +142,15 @@ export const runResponse = (res: Response, result: Result) => {
   }
   res.status(result.status).send(result.body)
 }
+
+const authorizationMiddleware: Arrow<Context, Result, {
+  loggedIn: boolean;
+  req: Request;
+}> = draw((ctx: Context) => {
+  if (ctx.req.headers.authorization) {
+    return succeed({ ...ctx, loggedIn: true })
+  } else {
+    return fail(Unauthorised({}))
+  }
+})
+
