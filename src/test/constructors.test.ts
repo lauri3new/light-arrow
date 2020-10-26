@@ -1,14 +1,14 @@
 
 import {
-  Arrow, draw, drawAsync, drawEither,
+  arrow, draw, drawAsync, drawEither,
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
   fail, succeed
 } from '../arrow/index'
 import { Right } from '../either'
 
-it('arrow should Arrow', async () => {
-  const result = await Arrow<{}, never, number>(async () => Right(1))
+it('arrow should arrow', async () => {
+  const result = await arrow<{}, never, number>(async () => Right(1))
     .runAsPromiseResult({})
   expect(result).toEqual(1)
 })
