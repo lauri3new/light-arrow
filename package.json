@@ -29,8 +29,6 @@
   },
   "dependencies": {
     "@funkia/list": "^0.1.0",
-    "fluture": "^13.0.1",
-    "immutable": "^4.0.0-rc.12",
     "path-to-regexp": "^6.2.0"
   }
 }
