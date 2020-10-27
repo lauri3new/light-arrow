@@ -113,3 +113,27 @@ it('arrow should all with concurrency limit', async () => {
   expect(result).toEqual([3, 3, 3, 3, 3, 3])
   expect(p2 - p1 < 300).toBe(true)
 })
+
+it('arrow should race', async () => {
+  const p1 = performance.now()
+  const result = await Arrow.race(
+    [
+      arrow(async () => {
+        await sleep(300)
+        return Right(3)
+      }),
+      arrow(async () => {
+        await sleep(100)
+        return Right(3)
+      }),
+      arrow(async () => {
+        await sleep(600)
+        return Right(3)
+      })
+    ]
+  )
+    .runAsPromiseResult({})
+  const p2 = performance.now()
+  expect(result).toEqual(3)
+  expect(p2 - p1 < 200).toBe(true)
+})

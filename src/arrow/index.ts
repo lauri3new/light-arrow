@@ -52,7 +52,8 @@ enum Ops {
   groupFirst = 7,
   groupSecond = 8,
   init = 9,
-  all = 10
+  all = 10,
+  race = 11
 }
 
 type map = {
@@ -106,7 +107,12 @@ type all = {
   concurrencyLimit?: number
 }
 
-type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all
+type race = {
+  _tag: Ops.race
+  f: Arrow<any, any, any>[]
+}
+
+type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race
 
 const worker = (context: any) => async (iterator: IterableIterator<[number, Arrow<any, any, any>]>, context: any) => {
   let out = []
@@ -173,6 +179,10 @@ async function _run(context: any, operations: List<Operation>) {
         } else {
           result = await Promise.all(op.f.map(_f => _f.runAsPromiseResult(context)))
         }
+      }
+      break;
+      case Ops.race: {
+        result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult(context)))
       }
       break;
       case Ops.andThen: {
@@ -355,6 +365,13 @@ export class Arrow<D, E, R> {
     }))
   }
 
+  static race<D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> {
+    return new Arrow<D, E, R>(undefined, list({
+      _tag: Ops.race,
+      f
+    }))
+  }
+
   static of<D, E, R>(f: (_:D) => Promise<Either<E, R>>): Arrow<D, E, R> {
     return new Arrow(f)
   }
@@ -365,6 +382,10 @@ export class Arrow<D, E, R> {
       f
     })
     this.ctx = initialContext
+  }
+
+  private runThrow(context: any) {
+
   }
   
   map<R2>(f: (_:R) => R2): Arrow<D, E, R2> {
@@ -572,6 +593,10 @@ export const drawEither = <E, R>(a:Either<E, R>):Arrow<{}, E, R> => Arrow.of(asy
 
 export const all = <D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> => {
   return Arrow.all(f, concurrencyLimit)
+}
+
+export const race = <D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> => {
+  return Arrow.race(f)
 }
 
 export function orElse <D1, E1, R1, D2, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E2, R1 | R2>
