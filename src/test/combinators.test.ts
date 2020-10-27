@@ -1,6 +1,6 @@
 import { performance } from 'perf_hooks'
 import {
-  andThen, Arrow, arrow, orElse, repeat, retry, sequence
+  andThen, Arrow, arrow, group, groupParallel, orElse, repeat, retry, sequence
 } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
@@ -136,4 +136,58 @@ it('arrow should race', async () => {
   const p2 = performance.now()
   expect(result).toEqual(3)
   expect(p2 - p1 < 200).toBe(true)
+})
+
+it('arrow should group (in sequence)', async () => {
+  const p1 = performance.now()
+  const result = await group(
+    arrow(async () => {
+      await sleep(300)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(100)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(600)
+      return Right(3)
+    })
+  )
+    .runAsPromiseResult({})
+  const p2 = performance.now()
+  expect(result).toEqual([3, 3, 3])
+  expect(p2 - p1 < 1100).toBe(true)
+  expect(p2 - p1 > 1000).toBe(true)
+})
+
+it('arrow should groupParallel', async () => {
+  const p1 = performance.now()
+  const result = await groupParallel(
+    arrow(async () => {
+      await sleep(300)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(100)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(100)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(100)
+      return Right(3)
+    }),
+    arrow(async () => {
+      await sleep(600)
+      return Right(3)
+    })
+  )
+    .runAsPromiseResult({})
+  const p2 = performance.now()
+  expect(result).toEqual([3, 3, 3, 3, 3])
+  expect(p2 - p1 < 700).toBe(true)
+  expect(p2 - p1 > 600).toBe(true)
 })

@@ -8,6 +8,13 @@ it('arrow should flatMapF', async () => {
   expect(result).toEqual(3)
 })
 
+it('arrow should flatMapF - dependency', async () => {
+  const result = await arrow<{abc:() => 123}, never, number>(async () => Right(1))
+    .flatMapF(a => async (b: {abc:() => 123}) => Right(a * 3 + b.abc()))
+    .runAsPromiseResult({ abc: () => 123 })
+  expect(result).toEqual(126)
+})
+
 it('arrow should flatMapF - fail', async () => {
   const { error, result } = await arrow<{}, number, never>(async () => Left(1))
     .flatMapF(a => async () => Right(a * 3))
