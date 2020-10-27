@@ -134,12 +134,11 @@ it('arrow should bracket', async () => {
         expect(flag).toEqual(false)
         flag = true
         return succeed(null)
-      },
-      (c) => {
-        expect(flag).toEqual(false)
-        return succeed<number, {}>(10)
       }
-    )
+    )((c) => {
+      expect(flag).toEqual(false)
+      return succeed<number, {}>(10)
+    })
   const { result, context } = await a
     .runAsPromise({})
   expect(flag).toEqual(true)
@@ -154,7 +153,8 @@ it('arrow should bracket - fail case', async () => {
         expect(flag).toEqual(false)
         flag = true
         return succeed(null)
-      },
+      }
+    )(
       (c) => {
         expect(flag).toEqual(false)
         return fail(10)

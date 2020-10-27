@@ -179,11 +179,7 @@ async function _run(context: any, operations: List<Operation>) {
     switch (op._tag) {
       case Ops.bracket: {
         x = await op.f[1](result).runAsPromise(context)
-        let i = await op.f[0](result).runAsPromise(context)
-        if (i.error) {
-          isLeft = true
-          error = i.error
-        }
+        await op.f[0](result).runAsPromise(context)
         if (x.failure) {
           throw x.failure
         }
@@ -530,8 +526,8 @@ export class Arrow<D, E, R> {
     }))
   }
 
-  bracket<D2, D3, E2, R2>(f: (_:R) => Arrow<D2, E2, any>, g: (_:R) => Arrow<D3, E2, R2>): Arrow<D & D2, E | E2, R2>  {
-    return new Arrow<D & D2, E | E2, R2>(undefined, this.operations.append({
+  bracket<D2>(f: (_:R) => Arrow<D2, never, any>) {
+    return <D3, E2, R2>(g: (_:R) => Arrow<D3, E2, R2>): Arrow<D & D2 & D3, E | E2, R2> => new Arrow<D & D2 & D3, E2, R2>(undefined, this.operations.append({
       _tag: Ops.bracket,
       f: [f, g]
     }))
