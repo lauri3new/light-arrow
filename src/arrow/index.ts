@@ -53,7 +53,8 @@ enum Ops {
   groupSecond = 8,
   init = 9,
   all = 10,
-  race = 11
+  race = 11,
+  bracket = 12
 }
 
 type map = {
@@ -112,7 +113,12 @@ type race = {
   f: Arrow<any, any, any>[]
 }
 
-type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race
+type bracket = {
+  _tag: Ops.bracket
+  f: [(_:any) => Arrow<any, any, any>, (_:any) => Arrow<any, any, any>]
+}
+
+type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race | bracket
 
 const worker = (context: any) => async (iterator: IterableIterator<[number, Arrow<any, any, any>]>, context: any) => {
   let out = []
@@ -171,6 +177,24 @@ async function _run(context: any, operations: List<Operation>) {
       }
     } else {
     switch (op._tag) {
+      case Ops.bracket: {
+        x = await op.f[1](result).runAsPromise(context)
+        let i = await op.f[0](result).runAsPromise(context)
+        if (i.error) {
+          isLeft = true
+          error = i.error
+        }
+        if (x.failure) {
+          throw x.failure
+        }
+        if (x.error) {
+          isLeft = true
+          error = x.error
+        } else {
+          result = x.result
+        }
+        break;
+      }
       case Ops.all: {
         if (op.concurrencyLimit) {
           let limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
@@ -391,7 +415,7 @@ export class Arrow<D, E, R> {
     }))
   }
 
-  biMap<E2, R2>(f: (_:E) => E2, g: (_:R) => R2):Arrow<D, E2, R2> {
+  biMap<E2, R2>(f: (_:E) => E2, g: (_:R) => R2): Arrow<D, E2, R2> {
     return new Arrow<D, E2, R2>(undefined, this.operations.append({
       _tag: Ops.map,
       f: g
@@ -436,73 +460,80 @@ export class Arrow<D, E, R> {
     }))
   }
 
-  orElse<D2, E2, R2>(f:Arrow<D2, E2, R2>) {
+  orElse<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E2, R | R2> {
     return new Arrow<D & D2, E2, R2>(undefined, this.operations.append({
       _tag: Ops.orElse,
       f
     }))
   }
 
-  orElseF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) {
+  orElseF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R | R2> {
     return new Arrow<D & D2, E2, R2>(undefined, this.operations.append({
       _tag: Ops.orElse,
       f
     }))
   }
 
-  andThen<E2, R2>(f:Arrow<R, E2, R2>) {
+  andThen<E2, R2>(f:Arrow<R, E2, R2>): Arrow<D, E | E2, R2> {
     return new Arrow<D, E2, R2>(undefined, this.operations.append({
       _tag: Ops.andThen,
       f
     }))
   }
 
-  andThenF<E2, R2>(f:(_:R) => Promise<Either<E2, R2>>) {
+  andThenF<E2, R2>(f:(_:R) => Promise<Either<E2, R2>>): Arrow<D, E | E2, R2> {
     return new Arrow<D, E2, R2>(undefined, this.operations.append({
       _tag: Ops.andThen,
       f
     }))
   }
 
-  group<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+  group<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
     return new Arrow<D & D2, E2, [R, R2]>(undefined, this.operations.append({
       _tag: Ops.group,
       f
     }))
   }
 
-  groupF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+  groupF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E | E2, [R, R2]> {
     return new Arrow<D & D2, E2, [R, R2]>(undefined, this.operations.append({
       _tag: Ops.group,
       f
     }))
   }
 
-  groupFirst<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+  groupFirst<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, R> {
     return new Arrow<D & D2, E2, R>(undefined, this.operations.append({
       _tag: Ops.groupFirst,
       f
     }))
   }
 
-  groupFirstF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+  groupFirstF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R> {
     return new Arrow<D & D2, E2, R>(undefined, this.operations.append({
       _tag: Ops.groupFirst,
       f
     }))
   }
 
-  groupSecond<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) {
+  groupSecond<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E2, R2> {
     return new Arrow<D & D2, E2, R2>(undefined, this.operations.append({
       _tag: Ops.groupSecond,
       f
     }))
   }
 
-  groupSecondF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) {
+  groupSecondF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R2> {
     return new Arrow<D & D2, E2, R2>(undefined, this.operations.append({
       _tag: Ops.groupSecond,
       f
+    }))
+  }
+
+  bracket<D2, D3, E2, R2>(f: (_:R) => Arrow<D2, E2, any>, g: (_:R) => Arrow<D3, E2, R2>): Arrow<D & D2, E | E2, R2>  {
+    return new Arrow<D & D2, E | E2, R2>(undefined, this.operations.append({
+      _tag: Ops.bracket,
+      f: [f, g]
     }))
   }
 

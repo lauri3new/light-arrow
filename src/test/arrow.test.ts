@@ -1,4 +1,4 @@
-import { arrow } from '../arrow/index'
+import { arrow, fail, succeed } from '../arrow/index'
 import { Left, Right } from '../either'
 
 it('arrow should map', async () => {
@@ -124,6 +124,46 @@ it('arrow should orElse', async () => {
   const result = await a.orElse(arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
+})
+
+it('arrow should bracket', async () => {
+  let flag = false
+  const a = arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
+    .bracket(
+      (b) => {
+        expect(flag).toEqual(false)
+        flag = true
+        return succeed(null)
+      },
+      (c) => {
+        expect(flag).toEqual(false)
+        return succeed<number, {}>(10)
+      }
+    )
+  const { result, context } = await a
+    .runAsPromise({})
+  expect(flag).toEqual(true)
+  expect(result).toEqual(10)
+})
+
+it('arrow should bracket - fail case', async () => {
+  let flag = false
+  const a = arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
+    .bracket(
+      (b) => {
+        expect(flag).toEqual(false)
+        flag = true
+        return succeed(null)
+      },
+      (c) => {
+        expect(flag).toEqual(false)
+        return fail(10)
+      }
+    )
+  const { result, error, context } = await a
+    .runAsPromise({})
+  expect(flag).toEqual(true)
+  expect(error).toEqual(10)
 })
 
 it('arrow should run - success', async () => {
