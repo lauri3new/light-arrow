@@ -1,7 +1,7 @@
 import { Express } from 'express'
 import { match } from 'path-to-regexp'
 import {
-  Arrow
+  arrow, Arrow
 } from '../arrow/index'
 import { Left, Right } from '../either'
 import {
@@ -37,7 +37,7 @@ export const seal = <A extends Context>(
 
 const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, A extends Context = Context>(
   path: string
-): Arrow<A, NotFound | Result, A & { params: B }> => Arrow<A, NotFound | Result, A & { params: B }>(async (ctx: A) => {
+): Arrow<A, NotFound | Result, A & { params: B }> => arrow<A, NotFound | Result, A & { params: B }>(async (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
     return Right(({ ...ctx, params: _match.params as B }))
