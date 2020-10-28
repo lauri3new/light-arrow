@@ -130,25 +130,175 @@ const worker = (context: any) => async (iterator: IterableIterator<[number, Arro
   return out
 }
 
-async function _run(context: any, operations: List<Operation>) {
+function runner(context: any, operations: List<Operation>) {
+  let cancelled = false
   let result: any
   let x: any
   let isLeft: boolean = false
   let error: any
   let ctx = context || {}
-  for (const op of operations) {
-    try {
-    if (isLeft) {
-      switch (op._tag) {
-        case Ops.leftMap: {
-          if (isLeft) {
-            error = op.f(error) 
+  return {
+    cancelled: () => {
+      return cancelled
+    },
+    cancel: () => {
+      cancelled = true
+    },
+    run: async function() {
+      for (const op of operations) {
+        if (this.cancelled()) return {
+          failure: undefined,
+          error,
+          result,
+          context
+        }
+        try {
+        if (isLeft) {
+          switch (op._tag) {
+            case Ops.leftMap: {
+              if (isLeft) {
+                error = op.f(error) 
+              }
+              break;
+            }
+            case Ops.orElse: {
+                isLeft = false
+                error = undefined
+                if (typeof op.f === 'function') {
+                  x = await op.f(ctx)
+                  x.match(
+                    (e: any) => {
+                      isLeft = true
+                      error = e
+                     },
+                    (r: any) => {
+                      result = r
+                    }
+                  )
+                } else {
+                  x = await op.f.runAsPromise(ctx)
+                  if (x.failure) {
+                    throw x.failure
+                  }
+                  if (x.error) {
+                    isLeft = true
+                    error = x.error
+                  } else {
+                    result = x.result
+                  }
+                }
+              break;
+            }
+          }
+        } else {
+        switch (op._tag) {
+          case Ops.bracket: {
+            x = await op.f[1](result).runAsPromise(context)
+            await op.f[0](result).runAsPromise(context)
+            if (x.failure) {
+              throw x.failure
+            }
+            if (x.error) {
+              isLeft = true
+              error = x.error
+            } else {
+              result = x.result
+            }
+            break;
+          }
+          case Ops.all: {
+            if (op.concurrencyLimit) {
+              let limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
+              let entries = op.f.entries()
+              result = await Promise.all(new Array(limit).fill(entries).map(worker(context))).then((array) => array.flat())
+            } else {
+              result = await Promise.all(op.f.map(_f => _f.runAsPromiseResult(context)))
+            }
           }
           break;
-        }
-        case Ops.orElse: {
-            isLeft = false
-            error = undefined
+          case Ops.race: {
+            result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult(context)))
+          }
+          break;
+          case Ops.andThen: {
+            if (typeof op.f === 'function') {
+              x = await op.f(result)
+              x.match(
+                (e: any) => {
+                  isLeft = true
+                  error = e
+                 },
+                (a: any) => {
+                  result = a
+                }
+              )
+            } else {
+              x = await op.f.runAsPromise(result)
+              if (x.failure) {
+                throw x.failure
+              }
+              if (x.error) {
+                isLeft = true
+                error = x.error
+              } else {
+                result = x.result
+              }
+            }
+            break;
+          }
+          case Ops.group: {
+            if (typeof op.f === 'function') {
+              x = await op.f(ctx)
+              x.match(
+                (e: any) => {
+                  isLeft = true
+                  error = e
+                 },
+                (r: any) => {
+                  result = [result, r]
+                }
+              )
+            } else {
+              x = await op.f.runAsPromise(ctx)
+              if (x.failure) {
+                throw x.failure
+              }
+              if (x.error) {
+                isLeft = true
+                error = x.error
+              } else {
+                result = [result, x.result]
+              }
+            }
+            break;
+          }
+          case Ops.groupFirst: {
+            if (typeof op.f === 'function') {
+              x = await op.f(ctx)
+              x.match(
+                (e: any) => {
+                  isLeft = true
+                  error = e
+                 },
+                (r: any) => {
+                  result = result
+                }
+              )
+            } else {
+              x = await op.f.runAsPromise(ctx)
+              if (x.failure) {
+                throw x.failure
+              }
+              if (x.error) {
+                isLeft = true
+                error = x.error
+              } else {
+                result = result
+              }
+            }
+            break;
+          }
+          case Ops.groupSecond: {
             if (typeof op.f === 'function') {
               x = await op.f(ctx)
               x.match(
@@ -172,192 +322,65 @@ async function _run(context: any, operations: List<Operation>) {
                 result = x.result
               }
             }
-          break;
-        }
-      }
-    } else {
-    switch (op._tag) {
-      case Ops.bracket: {
-        x = await op.f[1](result).runAsPromise(context)
-        await op.f[0](result).runAsPromise(context)
-        if (x.failure) {
-          throw x.failure
-        }
-        if (x.error) {
-          isLeft = true
-          error = x.error
-        } else {
-          result = x.result
-        }
-        break;
-      }
-      case Ops.all: {
-        if (op.concurrencyLimit) {
-          let limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
-          let entries = op.f.entries()
-          result = await Promise.all(new Array(limit).fill(entries).map(worker(context))).then((array) => array.flat())
-        } else {
-          result = await Promise.all(op.f.map(_f => _f.runAsPromiseResult(context)))
-        }
-      }
-      break;
-      case Ops.race: {
-        result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult(context)))
-      }
-      break;
-      case Ops.andThen: {
-        if (typeof op.f === 'function') {
-          x = await op.f(result)
-          x.match(
-            (e: any) => {
-              isLeft = true
-              error = e
-             },
-            (a: any) => {
-              result = a
+            break;
+          }
+          case Ops.flatMap: {
+            x = op.f(result)
+            if (typeof x === 'function') {
+              x = await x(ctx)
+              x.match(
+                (e: any) => {
+                  isLeft = true
+                  error = e
+                 },
+                (r: any) => {
+                  result = r
+                }
+              )
+            } else {
+              x = await x.runAsPromise(ctx)
+              if (x.failure) {
+                throw x.failure
+              }
+              if (x.error) {
+                isLeft = true
+                error = x.error
+              } else {
+                result = x.result
+              }
             }
-          )
-        } else {
-          x = await op.f.runAsPromise(result)
-          if (x.failure) {
-            throw x.failure
+            break;
           }
-          if (x.error) {
-            isLeft = true
-            error = x.error
-          } else {
-            result = x.result
+          case Ops.map: {
+            result = op.f(result)
+            break;
           }
-        }
-        break;
-      }
-      case Ops.group: {
-        if (typeof op.f === 'function') {
-          x = await op.f(ctx)
-          x.match(
-            (e: any) => {
-              isLeft = true
-              error = e
-             },
-            (r: any) => {
-              result = [result, r]
-            }
-          )
-        } else {
-          x = await op.f.runAsPromise(ctx)
-          if (x.failure) {
-            throw x.failure
-          }
-          if (x.error) {
-            isLeft = true
-            error = x.error
-          } else {
-            result = [result, x.result]
+          case Ops.init: {
+            x = await op.f(ctx)
+            x.match(
+              (e: any) => {
+                isLeft = true
+                error = e
+               },
+              (r: any) => {
+                result = r
+              }
+            )
+            break;
           }
         }
-        break;
       }
-      case Ops.groupFirst: {
-        if (typeof op.f === 'function') {
-          x = await op.f(ctx)
-          x.match(
-            (e: any) => {
-              isLeft = true
-              error = e
-             },
-            (r: any) => {
-              result = result
-            }
-          )
-        } else {
-          x = await op.f.runAsPromise(ctx)
-          if (x.failure) {
-            throw x.failure
-          }
-          if (x.error) {
-            isLeft = true
-            error = x.error
-          } else {
-            result = result
+        } catch (e) {
+          return {
+            failure: e,
+            error,
+            result,
+            context
           }
         }
-        break;
       }
-      case Ops.groupSecond: {
-        if (typeof op.f === 'function') {
-          x = await op.f(ctx)
-          x.match(
-            (e: any) => {
-              isLeft = true
-              error = e
-             },
-            (r: any) => {
-              result = r
-            }
-          )
-        } else {
-          x = await op.f.runAsPromise(ctx)
-          if (x.failure) {
-            throw x.failure
-          }
-          if (x.error) {
-            isLeft = true
-            error = x.error
-          } else {
-            result = x.result
-          }
-        }
-        break;
-      }
-      case Ops.flatMap: {
-        x = op.f(result)
-        if (typeof x === 'function') {
-          x = await x(ctx)
-          x.match(
-            (e: any) => {
-              isLeft = true
-              error = e
-             },
-            (r: any) => {
-              result = r
-            }
-          )
-        } else {
-          x = await x.runAsPromise(ctx)
-          if (x.failure) {
-            throw x.failure
-          }
-          if (x.error) {
-            isLeft = true
-            error = x.error
-          } else {
-            result = x.result
-          }
-        }
-        break;
-      }
-      case Ops.map: {
-        result = op.f(result)
-        break;
-      }
-      case Ops.init: {
-        x = await op.f(ctx)
-        x.match(
-          (e: any) => {
-            isLeft = true
-            error = e
-           },
-          (r: any) => {
-            result = r
-          }
-        )
-        break;
-      }
-    }
-  }
-    } catch (e) {
+    
       return {
-        failure: e,
         error,
         result,
         context
@@ -365,11 +388,6 @@ async function _run(context: any, operations: List<Operation>) {
     }
   }
 
-  return {
-    error,
-    result,
-    context
-  }
 }
 
 export class Arrow<D, E, R> {
@@ -540,41 +558,46 @@ export class Arrow<D, E, R> {
       error,
       failure,
       result
-    } = await _run(this.ctx || c, this.operations)
+    } = await runner(this.ctx || c, this.operations).run()
     if (error || failure) {
       throw error || failure
     }
     return result
   }
 
-  async run<R21, E2, F, D2>(
+  run<R21, E2, F, D2>(
     c: D,
     mapResult: (_:R) => R21,
     mapError: (_:E) => E2,
     handleFailure?: (_: Error) => F,
     handleContext?: (_:D) => D2
   ) {
-      const {
+      const _runner = runner(this.ctx || c, this.operations)
+      _runner.run().then(({
         error,
         result,
         context,
         failure
-      } = await _run(this.ctx || c, this.operations)
-      if (failure) {
-        if (handleFailure) {
-          handleFailure(failure)
-        } else {
-          throw failure
+      }) => {
+        if (!_runner.cancelled()) {
+          if (failure) {
+            if (handleFailure) {
+              handleFailure(failure)
+            } else {
+              throw failure
+            }
+          } else if (error) {
+            mapError(error)
+          } else {
+            mapResult(result)
+          }
+          if (handleContext) {
+            handleContext(context)
+          }
         }
-      } else if (error) {
-        mapError(error)
-      } else {
-        mapResult(result)
-      }
-      if (handleContext) {
-        handleContext(context)
-      }
-  }
+      })
+      return () => _runner.cancel()
+    }
 
   async runAsPromise(
     c: D
@@ -584,7 +607,7 @@ export class Arrow<D, E, R> {
         error,
         result,
         context
-      } = await _run(this.ctx || c, this.operations)
+      } = await runner(this.ctx || c, this.operations).run()
       return {
         result,
         error,

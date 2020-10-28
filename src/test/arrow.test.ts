@@ -1,5 +1,6 @@
 import { arrow, fail, succeed } from '../arrow/index'
 import { Left, Right } from '../either'
+import { sleep } from './helpers'
 
 it('arrow should map', async () => {
   const result = await arrow<{}, never, number>(async () => Right(1))
@@ -180,7 +181,7 @@ it('arrow should run - success', async () => {
 
 it('arrow should run - error', async () => {
   const a = arrow<{ok:() => number }, number, never>(async (a) => Left(a.ok()))
-  const result = await a.run(
+  const result = a.run(
     { ok: () => 2 },
     result => { },
     error => {
@@ -192,7 +193,7 @@ it('arrow should run - error', async () => {
 
 it('arrow should run - failure', async () => {
   const a = arrow<{ok:() => number }, number, never>(async (a) => { throw new Error('boom') })
-  const result = await a.run(
+  const result = a.run(
     { ok: () => 2 },
     result => { },
     error => { },
@@ -204,7 +205,7 @@ it('arrow should run - failure', async () => {
 
 it('arrow should run - context', async () => {
   const a = arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
-  const result = await a.run(
+  const result = a.run(
     { ok: () => 2 },
     result => {
       expect(result).toEqual(2)
@@ -216,6 +217,43 @@ it('arrow should run - context', async () => {
     }
   )
 })
+
+it('arrow should run no cancel', async () => {
+  let res = 0
+  const a = arrow<{ok:() => number }, never, number>(async (a) => {
+    await sleep(100)
+    return Right(a.ok())
+  })
+  const cancel = await a.run(
+    { ok: () => 2 },
+    result => {
+      res = result
+      expect(result).toEqual(2)
+    },
+    error => { }
+  )
+  await sleep(200)
+  expect(res).toEqual(2)
+})
+
+it('arrow should run and cancel', async () => {
+  let res = 0
+  const a = arrow<{ok:() => number }, never, number>(async (a) => {
+    await sleep(100)
+    return Right(a.ok())
+  })
+  const cancel = await a.run(
+    { ok: () => 2 },
+    result => {
+      res = result
+    },
+    error => { }
+  )
+  cancel()
+  await sleep(200)
+  expect(res).toEqual(0)
+})
+
 
 it('arrow should run as promise result - success', async () => {
   const a = arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
