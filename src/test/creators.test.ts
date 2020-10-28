@@ -4,7 +4,7 @@ import {
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
   fail, succeed
-} from '../arrow/index'
+} from '../arrow/creators'
 import { Right } from '../either'
 
 it('arrow should arrow', async () => {

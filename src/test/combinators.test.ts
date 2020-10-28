@@ -1,6 +1,12 @@
 import { performance } from 'perf_hooks'
 import {
-  andThen, Arrow, arrow, group, groupParallel, orElse, repeat, retry, sequence
+  andThen, group, groupParallel, orElse, repeat, retry, sequence
+} from '../arrow/combinators'
+import {
+  arrow
+} from '../arrow/creators'
+import {
+  Arrow
 } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'

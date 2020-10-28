@@ -1,5 +1,6 @@
 import { performance } from 'perf_hooks'
-import { all, arrow } from '../arrow'
+import { all } from '../arrow/combinators'
+import { arrow } from '../arrow/creators'
 import { Left, Right } from '../either'
 
 it('map should not stack overflow', async () => {

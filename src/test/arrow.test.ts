@@ -1,4 +1,4 @@
-import { arrow, fail, succeed } from '../arrow/index'
+import { arrow, fail, succeed } from '../arrow/creators'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
 

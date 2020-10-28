@@ -1,4 +1,4 @@
-import { arrow } from '../arrow/index'
+import { arrow } from '../arrow/creators'
 import { Left, Right } from '../either'
 
 it('arrow should flatMapF', async () => {
