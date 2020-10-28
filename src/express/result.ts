@@ -149,8 +149,6 @@ const authorizationMiddleware: Arrow<Context, Result, {
 }> = draw((ctx: Context) => {
   if (ctx.req.headers.authorization) {
     return succeed({ ...ctx, loggedIn: true })
-  } else {
-    return fail(Unauthorised({}))
   }
+  return fail(Unauthorised({}))
 })
-

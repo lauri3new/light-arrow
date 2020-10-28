@@ -45,8 +45,8 @@ import { runner } from './internal/runner'
 // }
 
 export class Arrow<D, E, R> {
-
   private ctx: any
+
   private operations: List<Operation>
 
   static all<D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> {
@@ -69,7 +69,7 @@ export class Arrow<D, E, R> {
   }
 
   private constructor(f?: (_:D) => Promise<Either<E, R>>, initialOps?: List<Operation>, initialContext?: any) {
-    this.operations = initialOps ? initialOps : list<{ _tag: Ops, f: any  }>({
+    this.operations = initialOps || list<{ _tag: Ops, f: any }>({
       _tag: Ops.init,
       f
     })
@@ -226,49 +226,49 @@ export class Arrow<D, E, R> {
     handleFailure?: (_: Error) => F,
     handleContext?: (_:D) => D2
   ) {
-      const _runner = runner(this.ctx || c, this.operations)
-      setImmediate(() => {
-        _runner.run().then(({
-          error,
-          result,
-          context,
-          failure
-        }) => {
-          if (!_runner.cancelled()) {
-            if (failure) {
-              if (handleFailure) {
-                handleFailure(failure)
-              } else {
-                throw failure
-              }
-            } else if (error) {
-              mapError(error)
+    const _runner = runner(this.ctx || c, this.operations)
+    setImmediate(() => {
+      _runner.run().then(({
+        error,
+        result,
+        context,
+        failure
+      }) => {
+        if (!_runner.cancelled()) {
+          if (failure) {
+            if (handleFailure) {
+              handleFailure(failure)
             } else {
-              mapResult(result)
+              throw failure
             }
-            if (handleContext) {
-              handleContext(context)
-            }
+          } else if (error) {
+            mapError(error)
+          } else {
+            mapResult(result)
           }
-        })
+          if (handleContext) {
+            handleContext(context)
+          }
+        }
       })
-      return () => _runner.cancel()
-    }
+    })
+    return () => _runner.cancel()
+  }
 
   async runAsPromise(
     c: D
   ) {
-      const {
-        failure,
-        error,
-        result,
-        context
-      } = await runner(this.ctx || c, this.operations).run()
-      return {
-        result,
-        error,
-        context,
-        failure
-      }
+    const {
+      failure,
+      error,
+      result,
+      context
+    } = await runner(this.ctx || c, this.operations).run()
+    return {
+      result,
+      error,
+      context,
+      failure
     }
+  }
 }

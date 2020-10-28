@@ -1,4 +1,3 @@
-/* eslint-disable no-loop-func */
 /* eslint-disable no-await-in-loop */
 import { List } from '@funkia/list'
 import { Operation, Ops } from './operations'
@@ -152,9 +151,7 @@ export function runner(context: any, operations: List<Operation>) {
                       isLeft = true
                       error = e
                     },
-                    (r: any) => {
-                      result = result
-                    }
+                    (r: any) => {}
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
