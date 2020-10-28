@@ -21,6 +21,10 @@ export function runner(context: any, operations: List<Operation>) {
     isLeft = false
     error = undefined
   }
+  const matchGroupResult = (r: any) => {
+    result = [result, r]
+  }
+  const noChange = () => {}
   return {
     cancelled: () => cancelled,
     cancel: () => {
@@ -119,8 +123,7 @@ export function runner(context: any, operations: List<Operation>) {
                   x = await op.f(ctx)
                   x.match(
                     matchError,
-                    // eslint-disable-next-line no-loop-func
-                    (r: any) => matchResult([result, r])
+                    matchGroupResult
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
@@ -140,7 +143,7 @@ export function runner(context: any, operations: List<Operation>) {
                   x = await op.f(ctx)
                   x.match(
                     matchError,
-                    () => {}
+                    noChange
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
