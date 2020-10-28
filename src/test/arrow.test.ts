@@ -240,6 +240,7 @@ it('arrow should run and cancel', async () => {
   let res = 0
   const a = arrow<{ok:() => number }, never, number>(async (a) => {
     await sleep(100)
+    res = 2
     return Right(a.ok())
   })
   const cancel = await a.run(

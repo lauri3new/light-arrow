@@ -573,28 +573,30 @@ export class Arrow<D, E, R> {
     handleContext?: (_:D) => D2
   ) {
       const _runner = runner(this.ctx || c, this.operations)
-      _runner.run().then(({
-        error,
-        result,
-        context,
-        failure
-      }) => {
-        if (!_runner.cancelled()) {
-          if (failure) {
-            if (handleFailure) {
-              handleFailure(failure)
+      setImmediate(() => {
+        _runner.run().then(({
+          error,
+          result,
+          context,
+          failure
+        }) => {
+          if (!_runner.cancelled()) {
+            if (failure) {
+              if (handleFailure) {
+                handleFailure(failure)
+              } else {
+                throw failure
+              }
+            } else if (error) {
+              mapError(error)
             } else {
-              throw failure
+              mapResult(result)
             }
-          } else if (error) {
-            mapError(error)
-          } else {
-            mapResult(result)
+            if (handleContext) {
+              handleContext(context)
+            }
           }
-          if (handleContext) {
-            handleContext(context)
-          }
-        }
+        })
       })
       return () => _runner.cancel()
     }
