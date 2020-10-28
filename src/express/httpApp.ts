@@ -1,14 +1,15 @@
 import { Express } from 'express'
 import { match } from 'path-to-regexp'
+import { arrow } from '../arrow/creators'
 import {
-  arrow, Arrow
+  Arrow
 } from '../arrow/index'
 import { Left, Right } from '../either'
 import {
-  Context, HttpMethods, isNotFound, isResult, NotFound, Result, runResponse
+  Context, HttpMethods, isNotFound, isResult, notFound, Result, runResponse
 } from './result'
 
-export type HttpRoutes<A extends Context = Context> = Arrow<A, NotFound | Result, Result> | Arrow<A, NotFound, Result>
+export type HttpRoutes<A extends Context = Context> = Arrow<A, notFound | Result, Result> | Arrow<A, notFound, Result>
 export type HttpApp<A extends Context = Context> = (ctx: A) => Promise<Result>
 
 export const bindApp = <A>(HttpApp: HttpApp<A & Context>, capabilities: A) => (app: Express) => {
@@ -23,10 +24,10 @@ export const bindApp = <A>(HttpApp: HttpApp<A & Context>, capabilities: A) => (a
 
 export const seal = <A extends Context>(
   a: HttpRoutes<A>,
-  onNotFound: (_: NotFound | Result) => Result,
+  onNotFound: (_: notFound | Result) => Result,
   onError: (e?: Error) => Result
 ): HttpApp<A> => (ctx: A) => a.runAsPromiseResult(ctx)
-    .catch((b: NotFound | Result | Error) => {
+    .catch((b: notFound | Result | Error) => {
       if (isNotFound(b)) {
         return onNotFound(b)
       } if (isResult(b)) {
@@ -37,7 +38,7 @@ export const seal = <A extends Context>(
 
 const matchMethodAndPath = (method: HttpMethods) => <B extends object = object, A extends Context = Context>(
   path: string
-): Arrow<A, NotFound | Result, A & { params: B }> => arrow<A, NotFound | Result, A & { params: B }>(async (ctx: A) => {
+): Arrow<A, notFound | Result, A & { params: B }> => arrow<A, notFound | Result, A & { params: B }>(async (ctx: A) => {
   const _match = match(path)(ctx.req.baseUrl)
   if (_match && ctx.req.method.toLowerCase() === method) {
     return Right(({ ...ctx, params: _match.params as B }))
