@@ -10,6 +10,17 @@ export function runner(context: any, operations: List<Operation>) {
   let isLeft: boolean = false
   let error: any
   const ctx = context || {}
+  const matchError = (e: any) => {
+    isLeft = true
+    error = e
+  }
+  const matchResult = (r: any) => {
+    result = r
+  }
+  const resetError = () => {
+    isLeft = false
+    error = undefined
+  }
   return {
     cancelled: () => cancelled,
     cancel: () => {
@@ -35,18 +46,12 @@ export function runner(context: any, operations: List<Operation>) {
                 break
               }
               case Ops.orElse: {
-                isLeft = false
-                error = undefined
+                resetError()
                 if (typeof op.f === 'function') {
                   x = await op.f(ctx)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (r: any) => {
-                      result = r
-                    }
+                    matchError,
+                    matchResult
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
@@ -54,10 +59,9 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   } else {
-                    result = x.result
+                    matchResult(x.result)
                   }
                 }
                 break
@@ -72,10 +76,9 @@ export function runner(context: any, operations: List<Operation>) {
                   throw x.failure
                 }
                 if (x.error) {
-                  isLeft = true
-                  error = x.error
+                  matchError(x.error)
                 } else {
-                  result = x.result
+                  matchResult(x.result)
                 }
                 break
               }
@@ -95,13 +98,8 @@ export function runner(context: any, operations: List<Operation>) {
                 if (typeof op.f === 'function') {
                   x = await op.f(result)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (a: any) => {
-                      result = a
-                    }
+                    matchError,
+                    matchResult
                   )
                 } else {
                   x = await op.f.runAsPromise(result)
@@ -109,10 +107,9 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   } else {
-                    result = x.result
+                    matchResult(x.result)
                   }
                 }
                 break
@@ -121,13 +118,9 @@ export function runner(context: any, operations: List<Operation>) {
                 if (typeof op.f === 'function') {
                   x = await op.f(ctx)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (r: any) => {
-                      result = [result, r]
-                    }
+                    matchError,
+                    // eslint-disable-next-line no-loop-func
+                    (r: any) => matchResult([result, r])
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
@@ -135,10 +128,9 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   } else {
-                    result = [result, x.result]
+                    matchResult([result, x.result])
                   }
                 }
                 break
@@ -147,11 +139,8 @@ export function runner(context: any, operations: List<Operation>) {
                 if (typeof op.f === 'function') {
                   x = await op.f(ctx)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (r: any) => {}
+                    matchError,
+                    () => {}
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
@@ -159,8 +148,7 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   }
                 }
                 break
@@ -169,13 +157,8 @@ export function runner(context: any, operations: List<Operation>) {
                 if (typeof op.f === 'function') {
                   x = await op.f(ctx)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (r: any) => {
-                      result = r
-                    }
+                    matchError,
+                    matchResult
                   )
                 } else {
                   x = await op.f.runAsPromise(ctx)
@@ -183,10 +166,9 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   } else {
-                    result = x.result
+                    matchResult(x.result)
                   }
                 }
                 break
@@ -196,13 +178,8 @@ export function runner(context: any, operations: List<Operation>) {
                 if (typeof x === 'function') {
                   x = await x(ctx)
                   x.match(
-                    (e: any) => {
-                      isLeft = true
-                      error = e
-                    },
-                    (r: any) => {
-                      result = r
-                    }
+                    matchError,
+                    matchResult
                   )
                 } else {
                   x = await x.runAsPromise(ctx)
@@ -210,10 +187,9 @@ export function runner(context: any, operations: List<Operation>) {
                     throw x.failure
                   }
                   if (x.error) {
-                    isLeft = true
-                    error = x.error
+                    matchError(x.error)
                   } else {
-                    result = x.result
+                    matchResult(x.result)
                   }
                 }
                 break
@@ -225,13 +201,8 @@ export function runner(context: any, operations: List<Operation>) {
               case Ops.init: {
                 x = await op.f(ctx)
                 x.match(
-                  (e: any) => {
-                    isLeft = true
-                    error = e
-                  },
-                  (r: any) => {
-                    result = r
-                  }
+                  matchError,
+                  matchResult
                 )
                 break
               }
