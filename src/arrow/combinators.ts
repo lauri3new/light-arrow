@@ -1,10 +1,5 @@
 import { Right } from '../either/index'
-import { arrow } from './creators'
 import { Arrow } from './index'
-
-export const all = <D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> => Arrow.all(f, concurrencyLimit)
-
-export const race = <D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> => Arrow.race(f)
 
 export function orElse <D1, E1, R1, D2, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E2, R1 | R2>
 export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>): Arrow<D1 & D2 & D3, E3, R1 | R2 | R3>
@@ -99,7 +94,7 @@ export function groupParallel(...as: Arrow<any, any, any>[]) {
 }
 
 export const sequence = <D, E, R>(as: Arrow<D, E, R>[]): Arrow<D, E, R[]> => as.reduce(
-  (acc, arrowR) => acc.flatMap((a) => arrowR.map(c => [...a, c])), arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
+  (acc, arrowR) => acc.flatMap((a: any) => arrowR.map(c => [...a, c])), Arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
 )
 
 export const retry = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))

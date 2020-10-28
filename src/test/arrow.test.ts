@@ -1,51 +1,52 @@
-import { arrow, fail, succeed } from '../arrow/creators'
+import { fail, succeed } from '../Arrow/creators'
+import { Arrow } from '../Arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
 
-it('arrow should map', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
+it('Arrow should map', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
     .map(a => a * 3)
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
-it('arrow should map - fail', async () => {
-  const { error, result } = await arrow<{}, never, number>(async () => Right(1))
-    .flatMap(() => arrow<{}, number, never>(async () => Left(1)))
+it('Arrow should map - fail', async () => {
+  const { error, result } = await Arrow<{}, never, number>(async () => Right(1))
+    .flatMap(() => Arrow<{}, number, never>(async () => Left(1)))
     .map(a => a * 3)
     .runAsPromise({})
   expect(result).toEqual(1)
   expect(error).toEqual(1)
 })
 
-it('arrow should flatMap', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .flatMap(a => arrow<{}, never, number>(async () => Right(a * 3)))
+it('Arrow should flatMap', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .flatMap(a => Arrow<{}, never, number>(async () => Right(a * 3)))
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
-it('arrow should flatMap - fail', async () => {
-  const { error, result } = await arrow<{}, number, never>(async () => Left(1))
-    .flatMap(a => arrow<{}, never, number>(async () => Right(a * 3)))
+it('Arrow should flatMap - fail', async () => {
+  const { error, result } = await Arrow<{}, number, never>(async () => Left(1))
+    .flatMap(a => Arrow<{}, never, number>(async () => Right(a * 3)))
     .runAsPromise({})
   expect(result).toEqual(undefined)
   expect(error).toEqual(1)
 })
 
-it('arrow should leftMap', async () => {
+it('Arrow should leftMap', async () => {
   const {
     error
-  } = await arrow<{}, number, never>(async () => Left(1))
+  } = await Arrow<{}, number, never>(async () => Left(1))
     .leftMap(a => a * 3)
     .runAsPromise({})
   expect(error).toEqual(3)
 })
 
-it('arrow should biMap - right', async () => {
+it('Arrow should biMap - right', async () => {
   const {
     error, result
-  } = await arrow<{}, never, number>(async () => Right(1))
+  } = await Arrow<{}, never, number>(async () => Right(1))
     .biMap(
       a => a * 3,
       a => a * 5
@@ -55,10 +56,10 @@ it('arrow should biMap - right', async () => {
   expect(error).toEqual(undefined)
 })
 
-it('arrow should biMap - left', async () => {
+it('Arrow should biMap - left', async () => {
   const {
     error, result
-  } = await arrow<{}, number, never>(async () => Left(1))
+  } = await Arrow<{}, number, never>(async () => Left(1))
     .biMap(
       a => a * 3,
       a => a * 5
@@ -68,68 +69,68 @@ it('arrow should biMap - left', async () => {
   expect(error).toEqual(3)
 })
 
-it('arrow should group', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .group(arrow<{}, never, number>(async () => Right(2)))
+it('Arrow should group', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .group(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual([1, 2])
 })
 
-it('arrow should group - fail', async () => {
-  const { result, error } = await arrow<{}, never, number>(async () => Right(1))
-    .group(arrow<{}, number, never>(async () => Left(2)))
+it('Arrow should group - fail', async () => {
+  const { result, error } = await Arrow<{}, never, number>(async () => Right(1))
+    .group(Arrow<{}, number, never>(async () => Left(2)))
     .runAsPromise({})
   expect(result).toEqual(1)
   expect(error).toEqual(2)
 })
 
-it('arrow should group first', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .groupFirst(arrow<{}, never, number>(async () => Right(2)))
+it('Arrow should group first', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .groupFirst(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(1)
 })
 
-it('arrow should group second', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .groupSecond(arrow<{}, never, number>(async () => Right(2)))
+it('Arrow should group second', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .groupSecond(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
-it('arrow should group', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .group(arrow<{}, never, number>(async () => Right(2)))
+it('Arrow should group', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .group(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual([1, 2])
 })
 
-it('arrow should andThen', async () => {
-  const result = await arrow<{}, never, number>(async () => Right(1))
-    .andThen(arrow<number, never, number>(async (a) => Right(a + 2)))
+it('Arrow should andThen', async () => {
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .andThen(Arrow<number, never, number>(async (a) => Right(a + 2)))
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
-it('arrow should orElse', async () => {
-  const result = await arrow<{}, number, never>(async () => Left(1))
-    .orElse(arrow<{}, never, number>(async () => Right(2)))
+it('Arrow should orElse', async () => {
+  const result = await Arrow<{}, number, never>(async () => Left(1))
+    .orElse(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
-it('arrow should orElse', async () => {
-  const a = arrow<{}, number, never>(async () => Left(1))
-    .orElse(arrow<{}, number, never>(async () => Left(2)))
+it('Arrow should orElse', async () => {
+  const a = Arrow<{}, number, never>(async () => Left(1))
+    .orElse(Arrow<{}, number, never>(async () => Left(2)))
 
-  const result = await a.orElse(arrow<{}, never, number>(async () => Right(2)))
+  const result = await a.orElse(Arrow<{}, never, number>(async () => Right(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
-it('arrow should bracket', async () => {
+it('Arrow should bracket', async () => {
   let flag = false
-  const a = arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
+  const a = Arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
     .bracket(
       (b) => {
         expect(flag).toEqual(false)
@@ -146,9 +147,9 @@ it('arrow should bracket', async () => {
   expect(result).toEqual(10)
 })
 
-it('arrow should bracket - fail case', async () => {
+it('Arrow should bracket - fail case', async () => {
   let flag = false
-  const a = arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
+  const a = Arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))
     .bracket(
       (b) => {
         expect(flag).toEqual(false)
@@ -167,8 +168,8 @@ it('arrow should bracket - fail case', async () => {
   expect(error).toEqual(10)
 })
 
-it('arrow should run - success', async () => {
-  const a = arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
+it('Arrow should run - success', async () => {
+  const a = Arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
   const result = await a.run(
     { ok: () => 2 },
     result => {
@@ -179,8 +180,8 @@ it('arrow should run - success', async () => {
   )
 })
 
-it('arrow should run - error', async () => {
-  const a = arrow<{ok:() => number }, number, never>(async (a) => Left(a.ok()))
+it('Arrow should run - error', async () => {
+  const a = Arrow<{ok:() => number }, number, never>(async (a) => Left(a.ok()))
   const result = a.run(
     { ok: () => 2 },
     result => { },
@@ -191,8 +192,8 @@ it('arrow should run - error', async () => {
   )
 })
 
-it('arrow should run - failure', async () => {
-  const a = arrow<{ok:() => number }, number, never>(async (a) => { throw new Error('boom') })
+it('Arrow should run - failure', async () => {
+  const a = Arrow<{ok:() => number }, number, never>(async (a) => { throw new Error('boom') })
   const result = a.run(
     { ok: () => 2 },
     result => { },
@@ -203,8 +204,8 @@ it('arrow should run - failure', async () => {
   )
 })
 
-it('arrow should run - context', async () => {
-  const a = arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
+it('Arrow should run - context', async () => {
+  const a = Arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
   const result = a.run(
     { ok: () => 2 },
     result => {
@@ -218,9 +219,9 @@ it('arrow should run - context', async () => {
   )
 })
 
-it('arrow should run no cancel', async () => {
+it('Arrow should run no cancel', async () => {
   let res = 0
-  const a = arrow<{ok:() => number }, never, number>(async (a) => {
+  const a = Arrow<{ok:() => number }, never, number>(async (a) => {
     await sleep(100)
     return Right(a.ok())
   })
@@ -236,9 +237,9 @@ it('arrow should run no cancel', async () => {
   expect(res).toEqual(2)
 })
 
-it('arrow should run and cancel', async () => {
+it('Arrow should run and cancel', async () => {
   let res = 0
-  const a = arrow<{ok:() => number }, never, number>(async (a) => {
+  const a = Arrow<{ok:() => number }, never, number>(async (a) => {
     await sleep(100)
     res = 2
     return Right(a.ok())
@@ -256,8 +257,8 @@ it('arrow should run and cancel', async () => {
 })
 
 
-it('arrow should run as promise result - success', async () => {
-  const a = arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
+it('Arrow should run as promise result - success', async () => {
+  const a = Arrow<{ok:() => number }, never, number>(async (a) => Right(a.ok()))
   const result = await a.runAsPromiseResult({ ok: () => 2 })
   expect(result).toEqual(2)
 })

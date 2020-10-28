@@ -1,19 +1,14 @@
 import { performance } from 'perf_hooks'
 import {
   andThen, group, groupParallel, orElse, repeat, retry, sequence
-} from '../arrow/combinators'
-import {
-  arrow
-} from '../arrow/creators'
-import {
-  Arrow
-} from '../arrow/index'
+} from '../Arrow/combinators'
+import { all, Arrow, race } from '../Arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
 
-it('arrow should orElse', async () => {
-  const a = await arrow<{}, number, never>(async () => Left(1))
-  const b = await arrow<{}, never, number>(async () => Right(1))
+it('Arrow should orElse', async () => {
+  const a = await Arrow<{}, number, never>(async () => Left(1))
+  const b = await Arrow<{}, never, number>(async () => Right(1))
 
   const result = await orElse(
     a,
@@ -24,8 +19,8 @@ it('arrow should orElse', async () => {
   expect(result).toEqual(1)
 })
 
-it('arrow should andThen', async () => {
-  const a = await arrow<{ num: number }, never, { num: number }>(async ({ num }) => Right({ num: num + 1 }))
+it('Arrow should andThen', async () => {
+  const a = await Arrow<{ num: number }, never, { num: number }>(async ({ num }) => Right({ num: num + 1 }))
 
   const result = await andThen(
     a,
@@ -36,8 +31,8 @@ it('arrow should andThen', async () => {
   expect(result).toEqual({ num: 5 })
 })
 
-it('arrow should sequence', async () => {
-  const a = arrow(async () => Right(3))
+it('Arrow should sequence', async () => {
+  const a = Arrow(async () => Right(3))
 
   const result = await sequence(
     [
@@ -51,9 +46,9 @@ it('arrow should sequence', async () => {
   expect(result).toEqual([3, 3, 3])
 })
 
-it('arrow should repeat', async () => {
+it('Arrow should repeat', async () => {
   let count = 0
-  const a = arrow<{}, never, void>(async () => {
+  const a = Arrow<{}, never, void>(async () => {
     count += 1
     return Right(undefined)
   })
@@ -63,9 +58,9 @@ it('arrow should repeat', async () => {
   expect(count).toEqual(100)
 })
 
-it('arrow should retry', async () => {
+it('Arrow should retry', async () => {
   let count = 0
-  const a = arrow<{}, void, void>(async () => {
+  const a = Arrow<{}, void, void>(async () => {
     count += 1
     if (count > 2) {
       return Right(undefined)
@@ -78,13 +73,13 @@ it('arrow should retry', async () => {
   expect(count).toEqual(3)
 })
 
-it('arrow should all', async () => {
-  const a = arrow(async () => {
+it('Arrow should all', async () => {
+  const a = Arrow(async () => {
     await sleep(100)
     return Right(3)
   })
   const p1 = performance.now()
-  const result = await Arrow.all(
+  const result = await all(
     [
       a,
       a,
@@ -97,13 +92,13 @@ it('arrow should all', async () => {
   expect(p2 - p1 < 200)
 })
 
-it('arrow should all with concurrency limit', async () => {
-  const a = arrow(async () => {
+it('Arrow should all with concurrency limit', async () => {
+  const a = Arrow(async () => {
     await sleep(100)
     return Right(3)
   })
   const p1 = performance.now()
-  const result = await Arrow.all(
+  const result = await all(
     [
       a,
       a,
@@ -120,19 +115,19 @@ it('arrow should all with concurrency limit', async () => {
   expect(p2 - p1 < 300).toBe(true)
 })
 
-it('arrow should race', async () => {
+it('Arrow should race', async () => {
   const p1 = performance.now()
-  const result = await Arrow.race(
+  const result = await race(
     [
-      arrow(async () => {
+      Arrow(async () => {
         await sleep(300)
         return Right(3)
       }),
-      arrow(async () => {
+      Arrow(async () => {
         await sleep(100)
         return Right(3)
       }),
-      arrow(async () => {
+      Arrow(async () => {
         await sleep(600)
         return Right(3)
       })
@@ -144,18 +139,18 @@ it('arrow should race', async () => {
   expect(p2 - p1 < 200).toBe(true)
 })
 
-it('arrow should group (in sequence)', async () => {
+it('Arrow should group (in sequence)', async () => {
   const p1 = performance.now()
   const result = await group(
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(300)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(100)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(600)
       return Right(3)
     })
@@ -167,26 +162,26 @@ it('arrow should group (in sequence)', async () => {
   expect(p2 - p1 > 1000).toBe(true)
 })
 
-it('arrow should groupParallel', async () => {
+it('Arrow should groupParallel', async () => {
   const p1 = performance.now()
   const result = await groupParallel(
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(300)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(100)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(100)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(100)
       return Right(3)
     }),
-    arrow(async () => {
+    Arrow(async () => {
       await sleep(600)
       return Right(3)
     })
