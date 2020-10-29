@@ -1,9 +1,10 @@
 /* eslint-disable no-await-in-loop */
-import { List } from '@funkia/list'
+import { List, toArray } from '@funkia/list'
 import { Operation, Ops } from './operations'
 import { worker } from './worker'
 
 export function runner(context: any, operations: List<Operation>) {
+  const stack = toArray(operations)
   let cancelled = false
   let result: any
   let x: any
@@ -31,8 +32,9 @@ export function runner(context: any, operations: List<Operation>) {
       cancelled = true
     },
     async run() {
-      for (const op of operations) {
-        if (this.cancelled()) {
+      while (stack.length) {
+        const op = stack.pop()
+        if (this.cancelled() || !op) {
           return {
             failure: undefined,
             error,
@@ -52,21 +54,23 @@ export function runner(context: any, operations: List<Operation>) {
               case Ops.orElse: {
                 resetError()
                 if (typeof op.f === 'function') {
+                  // cant be optimised in same fashion
                   x = await op.f(ctx)
                   x.match(
                     matchError,
                     matchResult
                   )
                 } else {
-                  x = await op.f.runAsPromise(ctx)
-                  if (x.failure) {
-                    throw x.failure
-                  }
-                  if (x.error) {
-                    matchError(x.error)
-                  } else {
-                    matchResult(x.result)
-                  }
+                  stack.push(...op.f.operations)
+                  // x = await op.f.runAsPromise(ctx)
+                  // if (x.failure) {
+                  //   throw x.failure
+                  // }
+                  // if (x.error) {
+                  //   matchError(x.error)
+                  // } else {
+                  //   matchResult(x.result)
+                  // }
                 }
                 break
               }
@@ -74,16 +78,16 @@ export function runner(context: any, operations: List<Operation>) {
           } else {
             switch (op._tag) {
               case Ops.bracket: {
-                x = await op.f[1](result).runAsPromise(context)
-                await op.f[0](result).runAsPromise(context)
-                if (x.failure) {
-                  throw x.failure
-                }
-                if (x.error) {
-                  matchError(x.error)
-                } else {
-                  matchResult(x.result)
-                }
+                // x = await op.f[1](result).runAsPromise(context)
+                // await op.f[0](result).runAsPromise(context)
+                // if (x.failure) {
+                //   throw x.failure
+                // }
+                // if (x.error) {
+                //   matchError(x.error)
+                // } else {
+                //   matchResult(x.result)
+                // }
                 break
               }
               case Ops.all:
@@ -177,24 +181,8 @@ export function runner(context: any, operations: List<Operation>) {
                 break
               }
               case Ops.flatMap: {
-                x = op.f(result)
-                if (typeof x === 'function') {
-                  x = await x(ctx)
-                  x.match(
-                    matchError,
-                    matchResult
-                  )
-                } else {
-                  x = await x.runAsPromise(ctx)
-                  if (x.failure) {
-                    throw x.failure
-                  }
-                  if (x.error) {
-                    matchError(x.error)
-                  } else {
-                    matchResult(x.result)
-                  }
-                }
+                // @ts-ignore
+                stack.push(...toArray(op.f(result).operations as any) as any)
                 break
               }
               case Ops.map: {
@@ -207,6 +195,10 @@ export function runner(context: any, operations: List<Operation>) {
                   matchError,
                   matchResult
                 )
+                break
+              }
+              case Ops.initValue: {
+                result = op.f
                 break
               }
             }

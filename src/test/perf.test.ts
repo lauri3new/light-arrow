@@ -1,5 +1,5 @@
 import { performance } from 'perf_hooks'
-import { all, Arrow } from '../Arrow/index'
+import { all, Arrow, resolve } from '../Arrow/index'
 import { Left, Right } from '../either'
 
 it('map should not stack overflow', async () => {
@@ -74,15 +74,15 @@ it('all should not stack overflow - concurrency limit', async () => {
 })
 
 it('should flatMap <3x slower than promises', async () => {
-  let a = Arrow<{}, never, number>(async () => Right(1))
-  for (let i = 0; i < 100000; i += 1) {
-    a = a.flatMap((c: number) => Arrow<{}, never, number>(async () => Right(c + 1)))
+  let a = resolve(1)
+  for (let i = 0; i < 1000000; i += 1) {
+    a = a.flatMap((c: number) => resolve(c + 1))
   }
   const p1 = performance.now()
   await a.runAsPromise({})
   const p2 = performance.now()
   let b = Promise.resolve(1)
-  for (let i = 0; i < 100000; i += 1) {
+  for (let i = 0; i < 1000000; i += 1) {
     b = b.then(async (c: number) => c + 1)
   }
   const p3 = performance.now()
@@ -91,19 +91,19 @@ it('should flatMap <3x slower than promises', async () => {
   const promiseRunTime = p4 - p3
   const ArrowRunTime = p2 - p1
 
-  expect(ArrowRunTime * 0.33).toBeLessThan(promiseRunTime)
+  expect(ArrowRunTime).toBeLessThan(promiseRunTime)
 })
 
 it('should map faster than promises', async () => {
-  let a = Arrow<{}, never, number>(async () => Right(1))
-  for (let i = 0; i < 100000; i += 1) {
+  let a = resolve(1)
+  for (let i = 0; i < 1000000; i += 1) {
     a = a.map((c: number) => c + 1)
   }
   const p1 = performance.now()
   await a.runAsPromise({})
   const p2 = performance.now()
   let b = Promise.resolve(1)
-  for (let i = 0; i < 100000; i += 1) {
+  for (let i = 0; i < 1000000; i += 1) {
     b = b.then((c: number) => c + 1)
   }
   const p3 = performance.now()

@@ -13,7 +13,8 @@ export enum Ops {
   init = 9,
   all = 10,
   race = 11,
-  bracket = 12
+  bracket = 12,
+  initValue = 13
 }
 
 type map = {
@@ -77,4 +78,9 @@ type bracket = {
   f: [(_:any) => Arrow<any, any, any>, (_:any) => Arrow<any, any, any>]
 }
 
-export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race | bracket
+type initValue = {
+  _tag: Ops.initValue
+  f: any
+}
+
+export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race | bracket | initValue
