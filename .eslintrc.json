@@ -42,7 +42,9 @@
         "no-restricted-syntax": "off",
         "comma-dangle": ["error", "never"],
         "no-shadow": "off",
-        "import/prefer-default-export": "off"
+        "import/prefer-default-export": "off",
+        "no-redeclare": "off",
+        "@typescript-eslint/no-redeclare": ["error"]
     },
     "settings": {
         "import/resolver": {

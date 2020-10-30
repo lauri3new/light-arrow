@@ -1,5 +1,6 @@
 import { CookieOptions, Request, Response } from 'express'
-import { Arrow, draw, succeed } from '../arrow'
+import { Arrow } from '../arrow'
+import { draw, resolve } from '../arrow/creators'
 
 export interface Cookie extends CookieOptions {
   name: string
@@ -20,9 +21,9 @@ export interface Context {
   req: Request
 }
 
-export type NotFound = { path: string, method: string }
+export type notFound = { path: string, method: string }
 
-export function isNotFound(a: NotFound | any): a is NotFound {
+export function isNotFound(a: notFound | any): a is notFound {
   return a?.path !== undefined && a?.method !== undefined
 }
 
@@ -36,6 +37,17 @@ export enum HttpMethods {
 }
 
 type body = object | Buffer | string | undefined
+
+export enum httpStatus {
+  OK = 200,
+  Created = 201,
+  NoContent = 204,
+  BadRequest = 400,
+  Unauthorised = 401,
+  Forbidden = 403,
+  NotFound = 404,
+  InternalServerError = 500
+}
 
 export interface Result<A extends body = any> {
   contentType?: string
@@ -52,17 +64,7 @@ export function isResult(a: Result | any): a is Result {
   return ['undefined', 'object', 'string'].includes(a?.body) && typeof a?.status === 'number'
 }
 
-export enum httpStatus {
-  OK = 200,
-  Created = 201,
-  NoContent = 204,
-  BadRequest = 400,
-  Unauthorised = 401,
-  Forbidden = 403,
-  NotFound = 404,
-  InternalServerError = 500
-}
-
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const Result = <A extends body = any>(status: httpStatus | number, body: A, contentType = 'application/json'):Result<A> => ({
   status,
   body,
@@ -148,9 +150,7 @@ const authorizationMiddleware: Arrow<Context, Result, {
   req: Request;
 }> = draw((ctx: Context) => {
   if (ctx.req.headers.authorization) {
-    return succeed({ ...ctx, loggedIn: true })
-  } else {
-    return fail(Unauthorised({}))
+    return resolve({ ...ctx, loggedIn: true })
   }
+  return reject(Unauthorised({}))
 })
-

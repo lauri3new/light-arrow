@@ -17,6 +17,7 @@ export type Left<E> = Either<E, never>
 
 // implementations
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const Right = <A, E = never>(a: A): Either<E, A> => ({
   _tag: 'right',
   __val: a,
@@ -27,6 +28,7 @@ export const Right = <A, E = never>(a: A): Either<E, A> => ({
   match: (f, g) => g(a)
 })
 
+// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const Left = <E, A = never>(a: E): Either<E, A> => ({
   _tag: 'left',
   __val: a,
