@@ -1,6 +1,7 @@
 /* eslint-disable no-await-in-loop */
 import { List, toArray } from '@funkia/list'
 import { Operation, Ops } from './operations'
+import { runAsPromiseResult } from './runAsPromiseResult'
 import { worker } from './worker'
 
 export function runner(context: any, operations: List<Operation>) {
@@ -101,26 +102,7 @@ export function runner(context: any, operations: List<Operation>) {
                     result = await Promise.all(op.f.map(async _f => {
                       const a = runner(context, _f.__ops)
                       cancellables.push(a.cancel)
-                      const {
-                        hasError,
-                        error,
-                        failure,
-                        result
-                      } = await a.run()
-                      if (hasError) {
-                        // eslint-disable-next-line no-throw-literal
-                        throw {
-                          tag: 'error',
-                          value: error
-                        }
-                      } else if (failure) {
-                        // eslint-disable-next-line no-throw-literal
-                        throw {
-                          tag: 'failure',
-                          value: failure
-                        }
-                      }
-                      return result
+                      return runAsPromiseResult(a)
                     }))
                     cancellables = []
                   }

@@ -3,6 +3,7 @@ import {
 } from '@funkia/list'
 import { Either } from '../either'
 import { Operation, Ops } from './internal/operations'
+import { runAsPromiseResult } from './internal/runAsPromiseResult'
 import { runner } from './internal/runner'
 
 export interface Arrow<D, E, R> {
@@ -244,26 +245,8 @@ class InternalArrow<D, E, R> {
   async runAsPromiseResult(
     c: D
   ) {
-    const {
-      hasError,
-      error,
-      failure,
-      result
-    } = await runner(this.ctx || c, this.operations).run()
-    if (hasError) {
-      // eslint-disable-next-line no-throw-literal
-      throw {
-        tag: 'error',
-        value: error
-      }
-    } else if (failure) {
-      // eslint-disable-next-line no-throw-literal
-      throw {
-        tag: 'failure',
-        value: failure
-      }
-    }
-    return result
+    const r = runner(this.ctx || c, this.operations)
+    return runAsPromiseResult(r)
   }
 
   run<R21, E2, F, D2>(

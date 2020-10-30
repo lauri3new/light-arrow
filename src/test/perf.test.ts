@@ -91,7 +91,7 @@ it('should flatMap faster than promises', async () => {
   const promiseRunTime = p4 - p3
   const ArrowRunTime = p2 - p1
 
-  expect(ArrowRunTime).toBeLessThan(promiseRunTime)
+  expect(ArrowRunTime * 2).toBeLessThan(promiseRunTime)
 })
 
 it('should map faster than promises', async () => {
@@ -112,5 +112,5 @@ it('should map faster than promises', async () => {
   const promiseRunTime = p4 - p3
   const ArrowRunTime = p2 - p1
 
-  expect(ArrowRunTime).toBeLessThan(promiseRunTime)
+  expect(ArrowRunTime * 2).toBeLessThan(promiseRunTime)
 })

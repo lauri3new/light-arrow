@@ -1,6 +1,6 @@
 import { CookieOptions, Request, Response } from 'express'
 import { Arrow } from '../arrow'
-import { draw, fail, succeed } from '../arrow/creators'
+import { draw, resolve } from '../arrow/creators'
 
 export interface Cookie extends CookieOptions {
   name: string
@@ -150,7 +150,7 @@ const authorizationMiddleware: Arrow<Context, Result, {
   req: Request;
 }> = draw((ctx: Context) => {
   if (ctx.req.headers.authorization) {
-    return succeed({ ...ctx, loggedIn: true })
+    return resolve({ ...ctx, loggedIn: true })
   }
-  return fail(Unauthorised({}))
+  return reject(Unauthorised({}))
 })

@@ -1,4 +1,4 @@
-import { fail, succeed } from '../Arrow/creators'
+import { reject, resolve } from '../Arrow/creators'
 import { Arrow } from '../Arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
@@ -135,11 +135,11 @@ it('Arrow should bracket', async () => {
       (b) => {
         expect(flag).toEqual(false)
         flag = true
-        return succeed(null)
+        return resolve(null)
       }
     )((c) => {
       expect(flag).toEqual(false)
-      return succeed<number, {}>(10)
+      return resolve<number, {}>(10)
     })
   const { result, context } = await a
     .runAsPromise({})
@@ -154,12 +154,12 @@ it('Arrow should bracket - fail case', async () => {
       (b) => {
         expect(flag).toEqual(false)
         flag = true
-        return succeed(null)
+        return resolve(null)
       }
     )(
       (c) => {
         expect(flag).toEqual(false)
-        return fail(10)
+        return reject(10)
       }
     )
   const { result, error, context } = await a

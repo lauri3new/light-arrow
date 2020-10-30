@@ -3,7 +3,7 @@ import {
   draw, drawAsync, drawEither,
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
-  fail, succeed
+  reject, resolve
 } from '../Arrow/creators'
 import {
   Arrow
@@ -84,8 +84,8 @@ it('Arrow should drawNullable - non null', async () => {
   expect(error).toEqual(undefined)
 })
 
-it('Arrow should succeed', async () => {
-  const { result, error } = await succeed(1)
+it('Arrow should resolve', async () => {
+  const { result, error } = await resolve(1)
     .map((a) => a + 1)
     .runAsPromise({})
   expect(error).toEqual(undefined)
@@ -93,7 +93,7 @@ it('Arrow should succeed', async () => {
 })
 
 it('Arrow should fail', async () => {
-  const { result, error } = await fail(1)
+  const { result, error } = await reject(1)
     .map((a) => a + 1)
     .runAsPromise({})
   expect(error).toEqual(1)
@@ -102,7 +102,7 @@ it('Arrow should fail', async () => {
 
 it('Arrow should draw from dependencies', async () => {
   const client = {
-    send: (name: string) => succeed('success')
+    send: (name: string) => resolve('success')
   }
 
   type Client = typeof client
