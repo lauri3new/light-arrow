@@ -1,4 +1,4 @@
-import { List, list, prepend } from '@funkia/list'
+import { first, List, list, prepend } from '@funkia/list'
 import { Either } from '../either'
 import { Operation, Ops } from './internal/operations'
 import { runner } from './internal/runner'
@@ -87,6 +87,12 @@ class InternalArrow<D, E, R> {
   }
 
   map<R2>(f: (_:R) => R2): Arrow<D, E, R2> {
+    if (first(this.operations)?._tag === Ops.initValue) {
+      return new InternalArrow<D, E, R2>(undefined, list({
+        _tag: Ops.initValue,
+        f: f(first(this.operations)?.f)
+      }))
+    }
     return new InternalArrow<D, E, R2>(undefined, prepend({
       _tag: Ops.map,
       f
@@ -115,6 +121,9 @@ class InternalArrow<D, E, R> {
   }
 
   flatMap<D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R2> {
+    if (first(this.operations)?._tag === Ops.initValue) {
+      return f(first(this.operations)?.f) as any
+    }
     return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
       _tag: Ops.flatMap,
       f

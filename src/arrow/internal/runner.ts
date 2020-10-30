@@ -54,7 +54,6 @@ export function runner(context: any, operations: List<Operation>) {
               case Ops.orElse: {
                 resetError()
                 if (typeof op.f === 'function') {
-                  // cant be optimised in same fashion
                   x = await op.f(ctx)
                   x.match(
                     matchError,
@@ -62,15 +61,6 @@ export function runner(context: any, operations: List<Operation>) {
                   )
                 } else {
                   stack.push(...op.f.operations)
-                  // x = await op.f.runAsPromise(ctx)
-                  // if (x.failure) {
-                  //   throw x.failure
-                  // }
-                  // if (x.error) {
-                  //   matchError(x.error)
-                  // } else {
-                  //   matchResult(x.result)
-                  // }
                 }
                 break
               }
@@ -78,16 +68,16 @@ export function runner(context: any, operations: List<Operation>) {
           } else {
             switch (op._tag) {
               case Ops.bracket: {
-                // x = await op.f[1](result).runAsPromise(context)
-                // await op.f[0](result).runAsPromise(context)
-                // if (x.failure) {
-                //   throw x.failure
-                // }
-                // if (x.error) {
-                //   matchError(x.error)
-                // } else {
-                //   matchResult(x.result)
-                // }
+                x = await op.f[1](result).runAsPromise(context)
+                await op.f[0](result).runAsPromise(context)
+                if (x.failure) {
+                  throw x.failure
+                }
+                if (x.error) {
+                  matchError(x.error)
+                } else {
+                  matchResult(x.result)
+                }
                 break
               }
               case Ops.all:
@@ -168,21 +158,21 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  x = await op.f.runAsPromise(ctx)
-                  if (x.failure) {
-                    throw x.failure
-                  }
-                  if (x.error) {
-                    matchError(x.error)
-                  } else {
-                    matchResult(x.result)
-                  }
+                  stack.push(...toArray(op.f.operations as any) as any)
                 }
                 break
               }
               case Ops.flatMap: {
-                // @ts-ignore
-                stack.push(...toArray(op.f(result).operations as any) as any)
+                x = op.f(result)
+                if (typeof x === 'function') {
+                  x = await x(ctx)
+                  x.match(
+                    matchError,
+                    matchResult
+                  )
+                } else {
+                  stack.push(...toArray(x.operations as any) as any)
+                }
                 break
               }
               case Ops.map: {

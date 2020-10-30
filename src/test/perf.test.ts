@@ -73,7 +73,7 @@ it('all should not stack overflow - concurrency limit', async () => {
   expect(result[9999]).toEqual(9999)
 })
 
-it('should flatMap <3x slower than promises', async () => {
+it('should flatMap faster than promises', async () => {
   let a = resolve(1)
   for (let i = 0; i < 1000000; i += 1) {
     a = a.flatMap((c: number) => resolve(c + 1))

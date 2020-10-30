@@ -29,9 +29,6 @@
   },
   "dependencies": {
     "@blakeembrey/deque": "^1.0.5",
-    "@funkia/list": "^0.1.0",
-    "denque": "^1.4.1",
-    "immutable": "^4.0.0-rc.12",
-    "path-to-regexp": "^6.2.0"
+    "@funkia/list": "^0.1.0"
   }
 }
