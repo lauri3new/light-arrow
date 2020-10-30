@@ -1,9 +1,9 @@
 <center><h1>Light-Arrow</h1></center>
 
-<center>
+<p align="center">
 <img alt="npm" src="https://img.shields.io/npm/v/light-arrow?color=g">
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/lauri3new/light-arrow/Node.js%20CI">
-</center>
+</p>
 
 ## About
 
