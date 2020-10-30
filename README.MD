@@ -1,5 +1,5 @@
 <div align="center">
-<img height="100" src="https://raw.githubusercontent.com/lauri3new/light-arrow/tidy/arrow1.png">
+<img height="100" src="https://raw.githubusercontent.com/lauri3new/light-arrow/master/arrow1.png">
 <h1 >Light-Arrow</h1>
 </div>
 
