@@ -1,4 +1,6 @@
-import { first, List, list, prepend } from '@funkia/list'
+import {
+  first, List, list, prepend
+} from '@funkia/list'
 import { Either } from '../either'
 import { Operation, Ops } from './internal/operations'
 import { runner } from './internal/runner'
