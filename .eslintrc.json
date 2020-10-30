@@ -24,7 +24,6 @@
         "semi": ["error", "never"],
         "arrow-parens": "off",
         "no-unused-vars": "off",
-        "import/no-unresolved": "warn",
         "import/extensions": [
             "error",
             "ignorePackages",
@@ -44,7 +43,8 @@
         "no-shadow": "off",
         "import/prefer-default-export": "off",
         "no-redeclare": "off",
-        "@typescript-eslint/no-redeclare": ["error"]
+        "@typescript-eslint/no-redeclare": ["error"],
+        "import/no-unresolved": "off"
     },
     "settings": {
         "import/resolver": {
