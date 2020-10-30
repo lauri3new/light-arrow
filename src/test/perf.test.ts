@@ -1,5 +1,5 @@
 import { performance } from 'perf_hooks'
-import { all, Arrow, resolve } from '../Arrow/index'
+import { all, Arrow, resolve } from '../arrow/index'
 import { Left, Right } from '../either'
 
 it('map should not stack overflow', async () => {

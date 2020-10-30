@@ -3,11 +3,11 @@ import {
   draw, drawAsync, drawEither,
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
-  reject, resolve
-} from '../Arrow/creators'
+  reject
+} from '../arrow/creators'
 import {
-  Arrow
-} from '../Arrow/index'
+  Arrow, resolve
+} from '../arrow/index'
 import { Right } from '../either'
 
 it('Arrow should Arrow', async () => {

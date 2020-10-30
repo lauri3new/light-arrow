@@ -1,5 +1,5 @@
-import { reject, resolve } from '../Arrow/creators'
-import { Arrow } from '../Arrow/index'
+import { reject } from '../arrow/creators'
+import { Arrow, resolve } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
 

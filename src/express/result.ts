@@ -1,6 +1,6 @@
 import { CookieOptions, Request, Response } from 'express'
-import { Arrow } from '../arrow'
-import { draw, resolve } from '../arrow/creators'
+import { Arrow, resolve } from '../arrow'
+import { draw, reject } from '../arrow/creators'
 
 export interface Cookie extends CookieOptions {
   name: string

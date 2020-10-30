@@ -1,8 +1,8 @@
 import { performance } from 'perf_hooks'
 import {
   andThen, group, groupParallel, orElse, repeat, retry, sequence
-} from '../Arrow/combinators'
-import { all, Arrow, race } from '../Arrow/index'
+} from '../arrow/combinators'
+import { all, Arrow, race } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
 
