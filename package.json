@@ -10,6 +10,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "test": "jest --verbose --env=node  --watchAll",
+    "test:ci": "jest --verbose --env=node",
     "build": "tsc",
     "lint": "npx eslint --fix './src/**/*'",
     "prepublishOnly": "npm test && npm run build"
