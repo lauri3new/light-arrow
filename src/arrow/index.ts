@@ -6,7 +6,7 @@ import { Operation, Ops } from './internal/operations'
 import { runner } from './internal/runner'
 
 export interface Arrow<D, E, R> {
-  operations: List<Operation>
+  __ops: List<Operation>
   // monad
   map: <R2>(f: (_:R) => R2) => Arrow<D, E, R2>
   flatMap: <D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
@@ -53,7 +53,11 @@ export interface Arrow<D, E, R> {
 class InternalArrow<D, E, R> {
   private ctx: any
 
-  public operations: List<Operation>
+  private operations: List<Operation>
+
+  public get __ops(): List<Operation> {
+    return this.operations
+  }
 
   static all<D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> {
     return new InternalArrow<D, E, R[]>(undefined, list({

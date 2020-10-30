@@ -64,7 +64,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...op.f.operations)
+                  stack.push(...op.f.__ops)
                 }
                 break
               }
@@ -90,7 +90,7 @@ export function runner(context: any, operations: List<Operation>) {
                     const limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
                     // eslint-disable-next-line no-loop-func
                     const entries = op.f.map(_f => {
-                      const _runner = runner(context, _f.operations)
+                      const _runner = runner(context, _f.__ops)
                       cancellables.push(_runner.cancel)
                       return _runner
                     }).entries()
@@ -99,7 +99,7 @@ export function runner(context: any, operations: List<Operation>) {
                   } else {
                     // eslint-disable-next-line no-loop-func
                     result = await Promise.all(op.f.map(async _f => {
-                      const a = runner(context, _f.operations)
+                      const a = runner(context, _f.__ops)
                       cancellables.push(a.cancel)
                       const {
                         hasError,
@@ -204,7 +204,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...toArray(op.f.operations as any) as any)
+                  stack.push(...toArray(op.f.__ops as any) as any)
                 }
                 break
               }
@@ -217,7 +217,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...toArray(x.operations as any) as any)
+                  stack.push(...toArray(x.__ops as any) as any)
                 }
                 break
               }
