@@ -24,6 +24,7 @@ export interface Arrow<D, E, R> {
   runAsPromise: (
     context: D
   ) => Promise<{
+    hasError: boolean,
     context: D,
     error: E
     result: R,
@@ -240,12 +241,23 @@ class InternalArrow<D, E, R> {
     c: D
   ) {
     const {
+      hasError,
       error,
       failure,
       result
     } = await runner(this.ctx || c, this.operations).run()
-    if (error || failure) {
-      throw error || failure
+    if (hasError) {
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        tag: 'error',
+        value: error
+      }
+    } else if (failure) {
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        tag: 'failure',
+        value: failure
+      }
     }
     return result
   }
@@ -260,6 +272,7 @@ class InternalArrow<D, E, R> {
     const _runner = runner(this.ctx || c, this.operations)
     setImmediate(() => {
       _runner.run().then(({
+        hasError,
         error,
         result,
         context,
@@ -272,7 +285,7 @@ class InternalArrow<D, E, R> {
             } else {
               throw failure
             }
-          } else if (error) {
+          } else if (hasError) {
             mapError(error)
           } else {
             mapResult(result)
@@ -290,6 +303,7 @@ class InternalArrow<D, E, R> {
     c: D
   ) {
     const {
+      hasError,
       failure,
       error,
       result,
@@ -297,6 +311,7 @@ class InternalArrow<D, E, R> {
     } = await runner(this.ctx || c, this.operations).run()
     return {
       result,
+      hasError,
       error,
       context,
       failure

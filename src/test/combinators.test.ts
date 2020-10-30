@@ -92,6 +92,56 @@ it('Arrow should all', async () => {
   expect(p2 - p1 < 200)
 })
 
+it('Arrow should all - cancel on exception', async () => {
+  let i = 0
+  const result = await all(
+    [
+      Arrow(async () => {
+        await sleep(100)
+        i += 1
+        throw new Error('boom')
+      }),
+      Arrow(async () => {
+        await sleep(10)
+        i += 1
+        return Right(null)
+      }),
+      Arrow(async () => {
+        await sleep(200)
+        i += 1
+        return Right(null)
+      })
+    ]
+  )
+    .runAsPromise({})
+  expect(i).toEqual(2)
+})
+
+it('Arrow should all - cancel on error', async () => {
+  let i = 0
+  const result = await all(
+    [
+      Arrow(async () => {
+        await sleep(100)
+        i += 1
+        return Left(null)
+      }),
+      Arrow(async () => {
+        await sleep(10)
+        i += 1
+        return Right(null)
+      }),
+      Arrow(async () => {
+        await sleep(200)
+        i += 1
+        return Right(null)
+      })
+    ]
+  )
+    .runAsPromise({})
+  expect(i).toEqual(2)
+})
+
 it('Arrow should all with concurrency limit', async () => {
   const a = Arrow(async () => {
     await sleep(100)
@@ -138,6 +188,59 @@ it('Arrow should race', async () => {
   expect(result).toEqual(3)
   expect(p2 - p1 < 200).toBe(true)
 })
+
+it('Arrow should all concurrent - cancel on exception', async () => {
+  let i = 0
+  const result = await all(
+    [
+      Arrow(async () => {
+        await sleep(100)
+        i += 1
+        throw new Error('boom')
+      }),
+      Arrow(async () => {
+        await sleep(10)
+        i += 1
+        return Right(null)
+      }),
+      Arrow(async () => {
+        await sleep(200)
+        i += 1
+        return Right(null)
+      })
+    ],
+    2
+  )
+    .runAsPromise({})
+  expect(i).toEqual(2)
+})
+
+it('Arrow should all concurrent - cancel on error', async () => {
+  let i = 0
+  const result = await all(
+    [
+      Arrow(async () => {
+        await sleep(100)
+        i += 1
+        return Left(null)
+      }),
+      Arrow(async () => {
+        await sleep(10)
+        i += 1
+        return Right(null)
+      }),
+      Arrow(async () => {
+        await sleep(200)
+        i += 1
+        return Right(null)
+      })
+    ],
+    2
+  )
+    .runAsPromise({})
+  expect(i).toEqual(2)
+})
+
 
 it('Arrow should group (in sequence)', async () => {
   const p1 = performance.now()

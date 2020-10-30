@@ -5,12 +5,14 @@ import { worker } from './worker'
 
 export function runner(context: any, operations: List<Operation>) {
   const stack = toArray(operations)
+  let cancellables: any[] = []
   let cancelled = false
   let result: any
   let x: any
   let isLeft: boolean = false
   let error: any
   const ctx = context || {}
+
   const matchError = (e: any) => {
     isLeft = true
     error = e
@@ -26,6 +28,7 @@ export function runner(context: any, operations: List<Operation>) {
     result = [result, r]
   }
   const noChange = () => {}
+
   return {
     cancelled: () => cancelled,
     cancel: () => {
@@ -36,6 +39,7 @@ export function runner(context: any, operations: List<Operation>) {
         const op = stack.pop()
         if (this.cancelled() || !op) {
           return {
+            hasError: false,
             failure: undefined,
             error,
             result,
@@ -81,12 +85,54 @@ export function runner(context: any, operations: List<Operation>) {
                 break
               }
               case Ops.all:
-                if (op.concurrencyLimit) {
-                  const limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
-                  const entries = op.f.entries()
-                  result = await Promise.all(new Array(limit).fill(entries).map(worker(context))).then((array) => array.flat())
-                } else {
-                  result = await Promise.all(op.f.map(_f => _f.runAsPromiseResult(context)))
+                try {
+                  if (op.concurrencyLimit) {
+                    const limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
+                    // eslint-disable-next-line no-loop-func
+                    const entries = op.f.map(_f => {
+                      const _runner = runner(context, _f.operations)
+                      cancellables.push(_runner.cancel)
+                      return _runner
+                    }).entries()
+                    // eslint-disable-next-line no-loop-func
+                    result = await Promise.all(new Array(limit).fill(entries).map(worker)).then((array) => array.flat())
+                  } else {
+                    // eslint-disable-next-line no-loop-func
+                    result = await Promise.all(op.f.map(async _f => {
+                      const a = runner(context, _f.operations)
+                      cancellables.push(a.cancel)
+                      const {
+                        hasError,
+                        error,
+                        failure,
+                        result
+                      } = await a.run()
+                      if (hasError) {
+                        // eslint-disable-next-line no-throw-literal
+                        throw {
+                          tag: 'error',
+                          value: error
+                        }
+                      } else if (failure) {
+                        // eslint-disable-next-line no-throw-literal
+                        throw {
+                          tag: 'failure',
+                          value: failure
+                        }
+                      }
+                      return result
+                    }))
+                    cancellables = []
+                  }
+                } catch (e) {
+                  while (cancellables[0]) {
+                    cancellables.pop()()
+                  }
+                  if (e.tag === 'error') {
+                    matchError(e.value)
+                  } else {
+                    throw e.value
+                  }
                 }
                 break
               case Ops.race:
@@ -195,6 +241,7 @@ export function runner(context: any, operations: List<Operation>) {
           }
         } catch (e) {
           return {
+            hasError: isLeft,
             failure: e,
             error,
             result,
@@ -202,8 +249,8 @@ export function runner(context: any, operations: List<Operation>) {
           }
         }
       }
-
       return {
+        hasError: isLeft,
         error,
         result,
         context
@@ -211,3 +258,5 @@ export function runner(context: any, operations: List<Operation>) {
     }
   }
 }
+
+export type Runner = ReturnType<typeof runner>

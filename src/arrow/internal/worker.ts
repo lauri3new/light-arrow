@@ -1,12 +1,29 @@
 /* eslint-disable no-await-in-loop */
-import { Arrow } from '../index'
+import { Runner } from './runner'
 
-export const worker = (context: any) => async (iterator: IterableIterator<[number, Arrow<any, any, any>]>, context: any) => {
+export const worker = async (iterator: IterableIterator<[number, Runner]>, context: any) => {
   const out = []
-  let x: any
-  for (const [index, item] of iterator) {
-    x = await item.runAsPromiseResult(context)
-    out.push(x)
+  for (const [index, runner] of iterator) {
+    const {
+      hasError,
+      error,
+      failure,
+      result
+    } = await runner.run()
+    if (hasError) {
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        tag: 'error',
+        value: error
+      }
+    } else if (failure) {
+      // eslint-disable-next-line no-throw-literal
+      throw {
+        tag: 'failure',
+        value: failure
+      }
+    }
+    out.push(result)
   }
   return out
 }
