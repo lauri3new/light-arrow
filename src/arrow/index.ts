@@ -6,22 +6,61 @@ import { Operation, Ops } from './internal/operations'
 import { runAsPromiseResult } from './internal/runAsPromiseResult'
 import { runner } from './internal/runner'
 
+/**
+ * Arrows are data structures that describe asynchronous operations that can succeed with a result value R or fail with a value E that depends on some dependencies D.
+ */
 export interface Arrow<D, E, R> {
+  /**
+  * This is an internal property, an immutable stack of the current operations.
+  */
   __ops: List<Operation>
-  // monad
+  /**
+  * Returns an Arrow with the result value mapped by the function f.
+  */
   map: <R2>(f: (_:R) => R2) => Arrow<D, E, R2>
+  /**
+  * Returns a new Arrow requiring the dependencies of the first Arrow & the second Arrow, by passing the result of the first Arrow to the function f.
+  */
   flatMap: <D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
+  /**
+  * Returns an Arrow with the error value mapped by the function f.
+  */
   leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, R>
+  /**
+  * Returns an Arrow with the error value mapped by the function f, and the result value mapped by function g.
+  */
   biMap: <E2, R2>(f: (_:E) => E2, g: (_:R) => R2) => Arrow<D, E2, R2>
-  // combinators
+  /**
+  * Returns an Arrow that will run the second arrow if the first fails.
+  */
   orElse: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E2, R | R2>
+  /**
+  * Provides the result of the first Arrow as the dependencies of the next Arrow, allowing 'start to end' composition.
+  */
   andThen: <E2, R2>(f: Arrow<R, E2, R2>) => Arrow<D, E | E2, R2>
+  /**
+  * Returns an Arrow with the result values in a tuple of the two grouped Arrows.
+  */
   group: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
+  /**
+  * Returns an Arrow with the first result value of the two grouped Arrows.
+  */
   groupFirst: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R>
+  /**
+  * Returns an Arrow with the second result value of the two grouped Arrows.
+  */
   groupSecond: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
+  /**
+  * Returns an Arrow with the result values in a tuple of the two grouped Arrows, running the operations in parallel.
+  */
   groupParallel:<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
+  /**
+  * bracket is useful for modelling effects that consume resources that are used and then released, it accepts a 'release' function that always executes after the second argument 'usage' function has executed, regardless of if it has failed or succeeded. The return type is an Arrow with the result type determined by the 'usage' function.
+  */
   bracket:<D2>(f: (_:R) => Arrow<D2, never, any>) => <D3, E2, R2>(g: (_:R) => Arrow<D3, E2, R2>) => Arrow<D & D2 & D3, E | E2, R2>
-  // run
+  /**
+  * Executes this Arrow, returning a promise with an object of the outcomes.
+  */
   runAsPromise: (
     context: D
   ) => Promise<{
@@ -31,9 +70,15 @@ export interface Arrow<D, E, R> {
     result: R,
     failure?: Error
   }>
+  /**
+  * Unsafely executes this Arrow, returning a promise with the result or throwing an Error with an object of type `{ tag: 'error' | 'failure' , value: E | Error }` in an error or exception case.
+  */
   runAsPromiseResult: (
     context: D
   ) => Promise<R>
+  /**
+  * Executes this Arrow with the given handler functions, returning a cancel function.
+  */
   run: <R21, E2, F, D2>(
     context: D,
     mapResult: (_:R) => R21,
@@ -41,13 +86,29 @@ export interface Arrow<D, E, R> {
     handleFailure?: (_: Error) => F,
     handleContext?: (_:D) => D2
   ) => () => void
-  // flatMapF
+  /**
+  * Like flatmap but accepts a function returning a Promise<Either>.
+  */
   flatMapF: <D2, E2, R2>(f: (_:R) => (_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
-  // combinatorsF
+  /**
+  * Like orElse but accepts a function returning a Promise<Either>.
+  */
   orElseF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E2, R | R2>
+  /**
+  * Like andThen but accepts a function returning a Promise<Either>.
+  */
   andThenF: <E2, R2>(_:(_:R) => Promise<Either<E2, R2>>) => Arrow<D, E | E2, R2>
+  /**
+  * Like group but accepts a function returning a Promise<Either>.
+  */
   groupF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, [R, R2]>
+  /**
+  * Like groupFirst but accepts a function returning a Promise<Either>.
+  */
   groupFirstF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R>
+  /**
+  * Like groupSecond but accepts a function returning a Promise<Either>.
+  */
   groupSecondF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
 }
 
