@@ -133,4 +133,5 @@ Arrows are highly composable through their various methods listed below. The `or
 
 ### Cancellation
 
-Arrows support cancellation, `run` returns a cancel function enabling early termination of executing Arrows.
+Arrows support limited cancellation, `run` returns a cancel function whereby any operations after the currently running operation are not executed. In future another Arrow constructor will be added that allows cancellation of running operations and specification of cancellation behaviour.
+
