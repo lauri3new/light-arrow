@@ -1,6 +1,9 @@
 import { Right } from '../either/index'
 import { Arrow } from './index'
 
+/**
+ * Returns an Arrow that will return the result value of the first succesful Arrow.
+ */
 export function orElse <D1, E1, R1, D2, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E2, R1 | R2>
 export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>): Arrow<D1 & D2 & D3, E3, R1 | R2 | R3>
 export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>): Arrow<D1 & D2 & D3 & D4, E4, R1 | R2 | R3 | R4>
@@ -21,6 +24,9 @@ export function orElse(...as: any[]) {
   return orElse(a.orElse(b), ...aas)
 }
 
+/**
+ * Provides the result of the first Arrow as the dependencies of the next Arrow, allowing 'start to end' composition.
+ */
 export function andThen <D1, E1, R1, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>): Arrow<D1, E1 | E2, R2>
 export function andThen <D1, E1, R1, E2, R2, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>): Arrow<D1, E1 | E2 | E3, R3>
 export function andThen <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>): Arrow<D1, E1 | E2 | E3 | E4, R4>
@@ -41,6 +47,9 @@ export function andThen(...as: any[]) {
   return andThen(a.andThen(b), ...aas)
 }
 
+/**
+ * Returns an Arrow with the result values in a tuple of the grouped Arrows.
+ */
 export function group <D1, E1, R1, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>): Arrow<D1, E1 | E2, [R1, R2]>
 export function group <D1, E1, R1, E2, R2, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>): Arrow<D1, E1 | E2 | E3, [R1, R2, R3]>
 export function group <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>): Arrow<D1, E1 | E2 | E3 | E4, [R1, R2, R3, R4]>
@@ -67,6 +76,9 @@ export function group(...as: Arrow<any, any, any>[]) {
   return runGroup(as, true)
 }
 
+/**
+ * Returns an Arrow with the result values in a tuple of the two grouped Arrows, running the operations in parallel.
+ */
 export function groupParallel <D1, E1, R1, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>): Arrow<D1, E1 | E2, [R1, R2]>
 export function groupParallel <D1, E1, R1, E2, R2, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>): Arrow<D1, E1 | E2 | E3, [R1, R2, R3]>
 export function groupParallel <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<R1, E2, R2>, c: Arrow<R2, E3, R3>, d: Arrow<R3, E4, R4>): Arrow<D1, E1 | E2 | E3 | E4, [R1, R2, R3, R4]>
@@ -93,10 +105,19 @@ export function groupParallel(...as: Arrow<any, any, any>[]) {
   return runGroup(as, true)
 }
 
+/**
+ * Convert a list of arrows into a single Arrow returning a list of result (R) values, running the operations in sequence.
+ */
 export const sequence = <D, E, R>(as: Arrow<D, E, R>[]): Arrow<D, E, R[]> => as.reduce(
   (acc, arrowR) => acc.flatMap((a: any) => arrowR.map(c => [...a, c])), Arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
 )
 
+/**
+ * Returns an Arrow that will repeat the operation and returns with the result value of the last Arrow.
+ */
 export const retry = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.orElse(retry(n - 1)(a)))
 
+/**
+ * Returns an Arrow that will repeat the operation until first succesful run.
+ */
 export const repeat = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
