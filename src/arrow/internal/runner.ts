@@ -1,6 +1,6 @@
 /* eslint-disable no-await-in-loop */
 import { List, toArray } from '@funkia/list'
-import { Operation, Ops } from './operations'
+import { Operation, Ops, Runnable } from './operations'
 import { runAsPromiseResult } from './runAsPromiseResult'
 import { worker } from './worker'
 
@@ -29,6 +29,49 @@ export function runner(context: any, operations: List<Operation>) {
     result = [result, r]
   }
   const noChange = () => {}
+  const _run = (op: Runnable) => {
+    switch (op._tag) {
+      case Ops.promiseBased: {
+        return op.f(ctx).then(x => {
+          x.match(
+            matchError,
+            matchResult
+          )
+        })
+      }
+      case Ops.construct: {
+        return new Promise((res) => {
+          let pending = true
+          const resolve = (a: any) => {
+            result = a
+            pending = false
+          }
+          const reject = (a: any) => {
+            isLeft = true
+            error = a
+            pending = false
+          }
+          const cancel = op.f(ctx)(resolve, reject)
+          const check = () => {
+            if (cancelled) {
+              pending = false
+              // eslint-disable-next-line no-unused-expressions
+              cancel && cancel()
+            }
+            if (!pending) {
+              res()
+            }
+            if (pending) {
+              setImmediate(() => {
+                check()
+              })
+            }
+          }
+          check()
+        })
+      }
+    }
+  }
 
   return {
     cancelled: () => cancelled,
@@ -72,6 +115,10 @@ export function runner(context: any, operations: List<Operation>) {
             }
           } else {
             switch (op._tag) {
+              case Ops.construct: {
+                await _run(op)
+                break
+              }
               case Ops.bracket: {
                 x = await op.f[1](result).runAsPromise(context)
                 await op.f[0](result).runAsPromise(context)
@@ -207,15 +254,11 @@ export function runner(context: any, operations: List<Operation>) {
                 result = op.f(result)
                 break
               }
-              case Ops.init: {
-                x = await op.f(ctx)
-                x.match(
-                  matchError,
-                  matchResult
-                )
+              case Ops.promiseBased: {
+                await _run(op)
                 break
               }
-              case Ops.initValue: {
+              case Ops.value: {
                 result = op.f
                 break
               }

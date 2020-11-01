@@ -10,11 +10,12 @@ export enum Ops {
   group = 6,
   groupFirst = 7,
   groupSecond = 8,
-  init = 9,
+  promiseBased = 9,
   all = 10,
   race = 11,
   bracket = 12,
-  initValue = 13
+  value = 13,
+  construct = 14
 }
 
 type map = {
@@ -57,8 +58,8 @@ type flatMap = {
   f: (result: any) => Arrow<any, any, any> | ((result: any) => (context: any) => Promise<Either<any, any>>)
 }
 
-type init = {
-  _tag: Ops.init
+type promiseBased = {
+  _tag: Ops.promiseBased
   f: (context: any) => Promise<Either<any, any>>
 }
 
@@ -78,9 +79,16 @@ type bracket = {
   f: [(_:any) => Arrow<any, any, any>, (_:any) => Arrow<any, any, any>]
 }
 
-type initValue = {
-  _tag: Ops.initValue
+type value = {
+  _tag: Ops.value
   f: any
 }
 
-export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | init | all | race | bracket | initValue
+type construct = {
+  _tag: Ops.construct,
+  f: (_: any) => (resolve: (_: any) => void, reject: (_: any) => void) => void | (() => void)
+}
+
+export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | promiseBased | all | race | bracket | value | construct
+
+export type Runnable = promiseBased | construct

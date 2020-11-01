@@ -32,7 +32,26 @@ Arrows are data structures that describe asynchronous operations that can succee
 Arrow<D, E, R>                                  
 ```
 
-Arrows can be seen as useful wrappers around a function of type `(_:D) => Promise<Either<E, R>>`, that make working with such functions more convenient and providing lots of helper methods for composability. To convert existing data types to Arrows there are several `draw` functions provided that make this easier (see interoperability below).
+Arrows can be seen as useful wrappers around a function of type `(_:D) => Promise<Either<E, R>>`, that make working with such functions more convenient and providing lots of helper methods for composability. To convert existing data types to Arrows there are several `draw` functions provided that make this easier (see interoperability below). We can also `construct` Arrows as we would for promises using `new Promise`, also optionally specifying a 'tidy up' callback (e.g. to clear up timeouts). `constructTask` can be used when we require no dependencies in our created Arrow.
+
+**The various ways of creating Arrows**
+```ts
+const a = construct((resolve, reject) => {
+  const a setTimeout(() => {
+    resolve(1)
+  }, 1000)
+  // we can return our tidy up function from construct
+  retrun () => {
+    clearTimeout(a)
+  }
+})
+
+const b = resolve(1)
+
+const c = Arrow(async ({ ok }: { ok: number }) => Right(5))
+```
+**Cancellation behaviour**
+It's worth noting that Cancellation behaviour can vary based on how the arrow was created see the cancellation section below.
 
 **An example function `sendEmail` returning an Arrow, depending on a promise based emailService**
 ```ts
@@ -66,9 +85,9 @@ sendInvites.run(
   () => console.log('success'),
   (error: string | Error) => {
     if (typeof error === 'string') {
-      console.log('oops ', error)
+      console.log('err str ', error)
     } else {
-      console.log('doh', error.message)
+      console.log('err ', error.message)
     }
   }
 )
@@ -133,5 +152,5 @@ Arrows are highly composable through their various methods listed below. The `or
 
 ### Cancellation
 
-Arrows support limited cancellation, `run` returns a cancel function whereby any operations after the currently running operation are not executed. In future another Arrow constructor will be added that allows cancellation of running operations and specification of cancellation behaviour.
+Arrows support cancellation. Cancellation behaviour can vary based on how the arrow was created, arrows created with `construct` when cancelled will cancel the ongoing operation and call the optionally specified tidy up function, its important to use `construct` over other ways of creating Arrows when this immediate cancellation is needed and/or if resources need to be tidied up (e.g. timeouts). Other arrows will complete the current operation but cancel the remaining operations.
 
