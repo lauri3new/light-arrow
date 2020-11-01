@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-redeclare */
 import {
   first, List, list, prepend
 } from '@funkia/list'
@@ -375,16 +376,31 @@ class InternalArrow<D, E, R> {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-redeclare
 export const Arrow = <D, E, R>(f: (_:D) => Promise<Either<E, R>>): Arrow<D, E, R> => InternalArrow.of(f)
 
+/**
+* Similiar to `Promise.all`, returns an Arrow where all operations will be run in parallel returning an array of R values. Optional a concurrency limit can be specified.
+*/
 export const all = <D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> => InternalArrow.all(f, concurrencyLimit)
 
+/**
+* Similiar to `Promise.race`, returns an Arrow where the R value from the first succesful operation will be returned.
+*/
 export const race = <D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> => InternalArrow.race(f)
 
+/**
+* Resolve an Arrow with the specified value.
+*/
 export const resolve = <R, D = {}>(a: R): Arrow<D, never, R> => InternalArrow.resolve(a)
 
+/**
+* Similiar to `new Promise`, an optional 'tidy up' function can be returned to tidy up resources upon cancellation.
+*/
 export const construct = <D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> => InternalArrow.construct(f)
 
-// TODO: make more efficient in runner
+// TODO: make constructTask more efficient in runner
+
+/**
+* Similiar to `construct` but useful for when no dependencies are required from the returned Arrow.
+*/
 export const constructTask = <D, E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> => InternalArrow.construct(() => f)
