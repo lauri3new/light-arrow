@@ -193,19 +193,15 @@ it('constructTask should run - error', async () => {
 })
 
 it('constructTask should run - failure', async () => {
-  try {
-    const a = construct<{ok:() => number }, any, never>((a) => (_, rej) => { rej('boom') })
-    const result = a.run(
-      { ok: () => 2 },
-      result => { },
-      error => { },
-      failure => {
-        expect(failure?.message).toEqual('boom')
-      }
-    )
-  } catch (e) {
-    console.log('exploded', e)
-  }
+  const a = construct<{ok:() => number }, any, never>((a) => (_, rej) => { rej('boom') })
+  const result = a.run(
+    { ok: () => 2 },
+    result => { },
+    error => { },
+    failure => {
+      expect(failure?.message).toEqual('boom')
+    }
+  )
 })
 
 it('constructTask should run - context', async () => {

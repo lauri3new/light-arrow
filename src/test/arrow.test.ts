@@ -193,19 +193,15 @@ it('Arrow should run - error', async () => {
 })
 
 it('Arrow should run - failure', async () => {
-  try {
-    const a = Arrow<{ok:() => number }, number, never>(async (a) => { throw new Error('boom') })
-    const result = a.run(
-      { ok: () => 2 },
-      result => { },
-      error => { },
-      failure => {
-        expect(failure?.message).toEqual('boom')
-      }
-    )
-  } catch (e) {
-    console.log('exploded', e)
-  }
+  const a = Arrow<{ok:() => number }, number, never>(async (a) => { throw new Error('boom') })
+  const result = a.run(
+    { ok: () => 2 },
+    result => { },
+    error => { },
+    failure => {
+      expect(failure?.message).toEqual('boom')
+    }
+  )
 })
 
 it('Arrow should run - context', async () => {
