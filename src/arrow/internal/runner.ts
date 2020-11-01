@@ -40,7 +40,7 @@ export function runner(context: any, operations: List<Operation>) {
         })
       }
       case Ops.construct: {
-        return new Promise((res, rej) => {
+        return new Promise((res) => {
           let pending = true
           const resolve = (a: any) => {
             result = a
@@ -51,31 +51,23 @@ export function runner(context: any, operations: List<Operation>) {
             error = a
             pending = false
           }
-          try {
-            const cancel = op.f(ctx)(resolve, reject)
-            const check = () => {
-              try {
-                if (cancelled) {
-                  pending = false
-                  // eslint-disable-next-line no-unused-expressions
-                  cancel && cancel()
-                }
-                if (!pending) {
-                  res()
-                }
-                if (pending) {
-                  setImmediate(() => {
-                    check()
-                  })
-                }
-              } catch (e) {
-                rej(e)
-              }
+          const cancel = op.f(ctx)(resolve, reject)
+          const check = () => {
+            if (cancelled) {
+              pending = false
+              // eslint-disable-next-line no-unused-expressions
+              cancel && cancel()
             }
-            check()
-          } catch (e) {
-            rej(e)
+            if (!pending) {
+              res()
+            }
+            if (pending) {
+              setImmediate(() => {
+                check()
+              })
+            }
           }
+          check()
         })
       }
     }
@@ -273,7 +265,6 @@ export function runner(context: any, operations: List<Operation>) {
             }
           }
         } catch (e) {
-          console.log('huh')
           return {
             hasError: isLeft,
             failure: e,
