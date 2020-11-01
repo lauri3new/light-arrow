@@ -1,9 +1,14 @@
 import { performance } from 'perf_hooks'
-import { all, Arrow, resolve } from '../arrow/index'
+import {
+  all, Arrow, construct, resolve
+} from '../arrow/index'
 import { Left, Right } from '../either'
 
 it('map should not stack overflow', async () => {
-  let a = Arrow<{}, never, number>(async () => Right(1))
+  let a = construct<{}, never, number>(() => (res) => {
+    res(1)
+    return () => {}
+  })
   for (let i = 0; i < 100000; i += 1) {
     a = a.map((c: number) => c + 1)
   }
@@ -12,9 +17,15 @@ it('map should not stack overflow', async () => {
 })
 
 it('flatMap should not stack overflow', async () => {
-  let a = Arrow<{}, never, number>(async () => Right(1))
+  let a = construct<{}, never, number>(() => (res) => {
+    res(1)
+    return () => {}
+  })
   for (let i = 0; i < 100000; i += 1) {
-    a = a.flatMap((c: number) => Arrow<{}, never, number>(async () => Right(c + 1)))
+    a = a.flatMap((c: number) => construct<{}, never, number>(() => (res) => {
+      res(c + 1)
+      return () => {}
+    }))
   }
   const result = await a.runAsPromiseResult({})
   expect(result).toEqual(100001)

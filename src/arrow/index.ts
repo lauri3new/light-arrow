@@ -142,23 +142,31 @@ class InternalArrow<D, E, R> {
 
   static resolve<R, D = {}>(f: R): Arrow<D, never, R> {
     return new InternalArrow(undefined, list({
-      _tag: Ops.initValue,
+      _tag: Ops.value,
       f
     })) as any
   }
 
+  // TODO: reader D
+  static construct<D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> {
+    return new InternalArrow(undefined, list({
+      _tag: Ops.construct,
+      f
+    }))
+  }
+
   private constructor(f?: (_:D) => Promise<Either<E, R>>, initialOps?: List<Operation>, initialContext?: any) {
     this.operations = initialOps || list<{ _tag: Ops, f: any }>({
-      _tag: Ops.init,
+      _tag: Ops.promiseBased,
       f
     })
     this.ctx = initialContext
   }
 
   map<R2>(f: (_:R) => R2): Arrow<D, E, R2> {
-    if (first(this.operations)?._tag === Ops.initValue) {
+    if (first(this.operations)?._tag === Ops.value) {
       return new InternalArrow<D, E, R2>(undefined, list({
-        _tag: Ops.initValue,
+        _tag: Ops.value,
         f: f(first(this.operations)?.f)
       }))
     }
@@ -190,7 +198,7 @@ class InternalArrow<D, E, R> {
   }
 
   flatMap<D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R2> {
-    if (first(this.operations)?._tag === Ops.initValue) {
+    if (first(this.operations)?._tag === Ops.value) {
       return f(first(this.operations)?.f) as any
     }
     return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
@@ -375,3 +383,8 @@ export const all = <D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Ar
 export const race = <D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> => InternalArrow.race(f)
 
 export const resolve = <R, D = {}>(a: R): Arrow<D, never, R> => InternalArrow.resolve(a)
+
+export const construct = <D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> => InternalArrow.construct(f)
+
+// TODO: make more efficient in runner
+export const constructTask = <D, E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> => InternalArrow.construct(() => f)
