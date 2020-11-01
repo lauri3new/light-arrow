@@ -1,6 +1,6 @@
 {
   "name": "light-arrow",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "type safe asynchronous typescript",
   "repository": "https://github.com/lauri3new/light-arrow",
   "main": "dist/index.js",
@@ -9,8 +9,8 @@
   ],
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest --verbose --env=node  --watchAll",
-    "test:ci": "jest --verbose --env=node",
+    "test": "jest --verbose --env=node",
+    "test:dev": "jest --verbose --env=node --watchAll",
     "build": "tsc",
     "lint": "npx eslint --fix './src/**/*'",
     "prepublishOnly": "npm test && npm run build"
