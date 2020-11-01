@@ -51,8 +51,7 @@ const b = resolve(1)
 const c = Arrow(async ({ ok }: { ok: number }) => Right(5))
 ```
 **Cancellation behaviour**
-It's worth noting that Cancellation behaviour can vary based on how the arrow was created, arrows created with `construct` when cancelled will cancel the ongoing operation and call the optionally specified tidy up function, its important to use `construct` over other ways of creating Arrows when this immediate cancellation is needed and/or if resources need to be tidied up (e.g. timeouts). Other arrows will complete the current operation but cancel the remaining operations.
-
+It's worth noting that Cancellation behaviour can vary based on how the arrow was created see the cancellation section below.
 
 **An example function `sendEmail` returning an Arrow, depending on a promise based emailService**
 ```ts
