@@ -9,8 +9,8 @@
   ],
   "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest --verbose --env=node  --watchAll",
-    "test:ci": "jest --verbose --env=node",
+    "test": "jest --verbose --env=node",
+    "test:dev": "jest --verbose --env=node --watchAll",
     "build": "tsc",
     "lint": "npx eslint --fix './src/**/*'",
     "prepublishOnly": "npm test && npm run build"
