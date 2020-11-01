@@ -403,4 +403,4 @@ export const construct = <D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject
 /**
 * Similiar to `construct` but useful for when no dependencies are required from the returned Arrow.
 */
-export const constructTask = <D, E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> => InternalArrow.construct(() => f)
+export const constructTask = <E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<{}, E, R> => InternalArrow.construct(() => f)
