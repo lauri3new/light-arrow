@@ -9,10 +9,10 @@ import { Right } from '../either'
 import { sleep } from './helpers'
 
 it('Arrow should orElse', async () => {
-  const a = await constructTask<{}, number, never>((_, rej) => {
+  const a = await constructTask<number, never>((_, rej) => {
     rej(1)
   })
-  const b = await constructTask<{}, never, number>((res) => {
+  const b = await constructTask<never, number>((res) => {
     res(1)
   })
 
@@ -54,7 +54,7 @@ it('Arrow should sequence', async () => {
 
 it('Arrow should repeat', async () => {
   let count = 0
-  const a = constructTask<{}, never, void>((res) => {
+  const a = constructTask<never, void>((res) => {
     count += 1
     res(undefined)
   })
@@ -66,7 +66,7 @@ it('Arrow should repeat', async () => {
 
 it('Arrow should retry', async () => {
   let count = 0
-  const a = constructTask<{}, void, void>((res, rej) => {
+  const a = constructTask<void, void>((res, rej) => {
     count += 1
     if (count > 2) {
       return res(undefined)
@@ -245,17 +245,17 @@ it('Arrow should all concurrent - cancel on exception', async () => {
 it('Arrow should group (in sequence)', async () => {
   const p1 = performance.now()
   const result = await group(
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(300).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(100).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(600).then(() => {
         res(3)
       })
@@ -271,27 +271,27 @@ it('Arrow should group (in sequence)', async () => {
 it('Arrow should groupParallel', async () => {
   const p1 = performance.now()
   const result = await groupParallel(
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(300).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(100).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(100).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(100).then(() => {
         res(3)
       })
     }),
-    constructTask((res) => {
+    constructTask<never, number>((res) => {
       sleep(600).then(() => {
         res(3)
       })
