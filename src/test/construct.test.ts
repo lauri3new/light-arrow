@@ -4,15 +4,15 @@ import { Left, Right } from '../either'
 import { sleep } from './helpers'
 
 it('constructTask should map', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
+  const result = await constructTask<never, number>((res) => res(1))
     .map(a => a * 3)
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
 it('constructTask should map - fail', async () => {
-  const { error, result } = await constructTask<{}, never, number>((res) => res(1))
-    .flatMap(() => constructTask<{}, number, never>((_, rej) => rej(1)))
+  const { error, result } = await constructTask<never, number>((res) => res(1))
+    .flatMap(() => constructTask<number, never>((_, rej) => rej(1)))
     .map(a => a * 3)
     .runAsPromise({})
   expect(result).toEqual(1)
@@ -20,15 +20,15 @@ it('constructTask should map - fail', async () => {
 })
 
 it('constructTask should flatMap', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
-    .flatMap(a => constructTask<{}, never, number>((res) => res(a * 3)))
+  const result = await constructTask<never, number>((res) => res(1))
+    .flatMap(a => constructTask<never, number>((res) => res(a * 3)))
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
 it('constructTask should flatMap - fail', async () => {
-  const { error, result } = await constructTask<{}, number, never>((_, rej) => rej(1))
-    .flatMap(a => constructTask<{}, never, number>((res) => res(a * 3)))
+  const { error, result } = await constructTask<number, never>((_, rej) => rej(1))
+    .flatMap(a => constructTask<never, number>((res) => res(a * 3)))
     .runAsPromise({})
   expect(result).toEqual(undefined)
   expect(error).toEqual(1)
@@ -37,7 +37,7 @@ it('constructTask should flatMap - fail', async () => {
 it('constructTask should leftMap', async () => {
   const {
     error
-  } = await constructTask<{}, number, never>((_, rej) => rej(1))
+  } = await constructTask<number, never>((_, rej) => rej(1))
     .leftMap(a => a * 3)
     .runAsPromise({})
   expect(error).toEqual(3)
@@ -46,7 +46,7 @@ it('constructTask should leftMap', async () => {
 it('constructTask should biMap - right', async () => {
   const {
     error, result
-  } = await constructTask<{}, never, number>((res) => res(1))
+  } = await constructTask<never, number>((res) => res(1))
     .biMap(
       a => a * 3,
       a => a * 5
@@ -59,7 +59,7 @@ it('constructTask should biMap - right', async () => {
 it('constructTask should biMap - left', async () => {
   const {
     error, result
-  } = await constructTask<{}, number, never>((_, rej) => rej(1))
+  } = await constructTask<number, never>((_, rej) => rej(1))
     .biMap(
       a => a * 3,
       a => a * 5
@@ -70,67 +70,67 @@ it('constructTask should biMap - left', async () => {
 })
 
 it('constructTask should group', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
-    .group(constructTask<{}, never, number>((res) => res(2)))
+  const result = await constructTask<never, number>((res) => res(1))
+    .group(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual([1, 2])
 })
 
 it('constructTask should group - fail', async () => {
-  const { result, error } = await constructTask<{}, never, number>((res) => res(1))
-    .group(constructTask<{}, number, never>((_, rej) => rej(2)))
+  const { result, error } = await constructTask<never, number>((res) => res(1))
+    .group(constructTask<number, never>((_, rej) => rej(2)))
     .runAsPromise({})
   expect(result).toEqual(1)
   expect(error).toEqual(2)
 })
 
 it('constructTask should group first', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
-    .groupFirst(constructTask<{}, never, number>((res) => res(2)))
+  const result = await constructTask<never, number>((res) => res(1))
+    .groupFirst(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(1)
 })
 
 it('constructTask should group second', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
-    .groupSecond(constructTask<{}, never, number>((res) => res(2)))
+  const result = await constructTask<never, number>((res) => res(1))
+    .groupSecond(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
 it('constructTask should group', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
-    .group(constructTask<{}, never, number>((res) => res(2)))
+  const result = await constructTask<never, number>((res) => res(1))
+    .group(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual([1, 2])
 })
 
 it('constructTask should andThen', async () => {
-  const result = await constructTask<{}, never, number>((res) => res(1))
+  const result = await constructTask<never, number>((res) => res(1))
     .andThen(Arrow<number, never, number>(async (a) => Right(a + 2)))
     .runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
 it('constructTask should orElse', async () => {
-  const result = await constructTask<{}, number, never>((_, rej) => rej(1))
-    .orElse(constructTask<{}, never, number>((res) => res(2)))
+  const result = await constructTask<number, never>((_, rej) => rej(1))
+    .orElse(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
 it('constructTask should orElse', async () => {
-  const a = constructTask<{}, number, never>((_, rej) => rej(1))
+  const a = constructTask<number, never>((_, rej) => rej(1))
     .orElse(Arrow<{}, number, never>(async () => Left(2)))
 
-  const result = await a.orElse(constructTask<{}, never, number>((res) => res(2)))
+  const result = await a.orElse(constructTask<never, number>((res) => res(2)))
     .runAsPromiseResult({})
   expect(result).toEqual(2)
 })
 
 it('constructTask should bracket', async () => {
   let flag = false
-  const a = constructTask<{}, never, { ok: number }>((res) => res({ ok: 123 }))
+  const a = constructTask<never, { ok: number }>((res) => res({ ok: 123 }))
     .bracket(
       (b) => {
         expect(flag).toEqual(false)
@@ -149,7 +149,7 @@ it('constructTask should bracket', async () => {
 
 it('constructTask should bracket - fail case', async () => {
   let flag = false
-  const a = constructTask<{}, never, { ok: number }>((res) => res({ ok: 123 }))
+  const a = constructTask<never, { ok: number }>((res) => res({ ok: 123 }))
     .bracket(
       (b) => {
         expect(flag).toEqual(false)
