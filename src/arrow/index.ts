@@ -199,9 +199,6 @@ class InternalArrow<D, E, R> {
   }
 
   flatMap<D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R2> {
-    if (first(this.operations)?._tag === Ops.value) {
-      return f(first(this.operations)?.f) as any
-    }
     return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
       _tag: Ops.flatMap,
       f
