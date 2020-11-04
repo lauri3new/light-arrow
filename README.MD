@@ -41,7 +41,7 @@ const a = construct((resolve, reject) => {
     resolve(1)
   }, 1000)
   // we can return our tidy up function from construct
-  retrun () => {
+  return () => {
     clearTimeout(a)
   }
 })
