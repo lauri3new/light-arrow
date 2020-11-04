@@ -104,26 +104,24 @@ it('all should not stack overflow - concurrency limit', async () => {
   expect(result[9999]).toEqual(9999)
 })
 
-it('should flatMap comparable to promises', async () => {
-  // TODO: fix performance to be faster
-  let a = resolve(1)
-  for (let i = 0; i < 1000000; i += 1) {
-    a = a.flatMap((c: number) => resolve(c + 1))
+it('should flatMap faster than promises', async () => {
+  function ar(n: number): any {
+    if (n < 1) return resolve({})
+    return resolve({}).flatMap(() => ar(n - 1))
   }
   const p1 = performance.now()
-  await a.runAsPromise({})
+  await ar(1000000).runAsPromise({})
   const p2 = performance.now()
-  let b = Promise.resolve(1)
-  for (let i = 0; i < 1000000; i += 1) {
-    b = b.then(async (c: number) => c + 1)
+  function p(n: number): any {
+    if (n < 1) return Promise.resolve()
+    return Promise.resolve().then(() => p(n - 1))
   }
   const p3 = performance.now()
-  await b
+  await p(1000000)
   const p4 = performance.now()
   const promiseRunTime = p4 - p3
   const ArrowRunTime = p2 - p1
-
-  expect(ArrowRunTime).toBeLessThan(promiseRunTime * 3)
+  expect(ArrowRunTime).toBeLessThan(promiseRunTime)
 })
 
 it('should map faster than promises', async () => {
