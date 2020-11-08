@@ -1,6 +1,9 @@
 {
-  "name": "light-arrow",
-  "version": "0.6.2",
+  "name": "@light-arrow/arrow",
+  "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "type safe asynchronous typescript",
   "repository": "https://github.com/lauri3new/light-arrow",
   "main": "dist/index.js",
@@ -18,7 +21,6 @@
   "author": "Laurence Newman",
   "license": "ISC",
   "devDependencies": {
-    "@types/express": "^4.17.6",
     "@typescript-eslint/eslint-plugin": "^4.6.0",
     "@typescript-eslint/parser": "^4.6.0",
     "eslint": "^6.8.0",
@@ -27,8 +29,5 @@
     "jest": "^26.6.0",
     "ts-jest": "^26.4.1",
     "typescript": "^4.0.3"
-  },
-  "dependencies": {
-    "path-to-regexp": "^6.2.0"
   }
 }
