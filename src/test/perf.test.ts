@@ -141,6 +141,5 @@ it('should map faster than promises', async () => {
   const p4 = performance.now()
   const promiseRunTime = p4 - p3
   const ArrowRunTime = p2 - p1
-
   expect(ArrowRunTime).toBeLessThan(promiseRunTime)
 })

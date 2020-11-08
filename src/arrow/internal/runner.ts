@@ -1,11 +1,11 @@
-/* eslint-disable no-await-in-loop */
-import { List, toArray } from '@funkia/list'
+/* eslint-disable no-await-in-loop, no-loop-func, no-unused-expressions */
 import { Operation, Ops, Runnable } from './operations'
 import { runAsPromiseResult } from './runAsPromiseResult'
+import { Stack } from './stack'
 import { worker } from './worker'
 
-export function runner(context: any, operations: List<Operation>) {
-  const stack = toArray(operations)
+export function runner(context: any, operations: Stack<Operation>) {
+  const stack = operations.toArray()
   let cancellables: any[] = []
   let cancelled = false
   let result: any
@@ -55,7 +55,6 @@ export function runner(context: any, operations: List<Operation>) {
           const check = () => {
             if (cancelled) {
               pending = false
-              // eslint-disable-next-line no-unused-expressions
               cancel && cancel()
             }
             if (!pending) {
@@ -108,7 +107,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...op.f.__ops)
+                  stack.push(...op.f.__ops.toArray())
                 }
                 break
               }
@@ -136,16 +135,13 @@ export function runner(context: any, operations: List<Operation>) {
                 try {
                   if (op.concurrencyLimit) {
                     const limit = op.f.length > op.concurrencyLimit ? op.concurrencyLimit : op.f.length
-                    // eslint-disable-next-line no-loop-func
                     const entries = op.f.map(_f => {
                       const _runner = runner(context, _f.__ops)
                       cancellables.push(_runner.cancel)
                       return _runner
                     }).entries()
-                    // eslint-disable-next-line no-loop-func
                     result = await Promise.all(new Array(limit).fill(entries).map(worker)).then((array) => array.flat())
                   } else {
-                    // eslint-disable-next-line no-loop-func
                     result = await Promise.all(op.f.map(async _f => {
                       const a = runner(context, _f.__ops)
                       cancellables.push(a.cancel)
@@ -233,7 +229,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...toArray(op.f.__ops as any) as any)
+                  stack.push(...op.f.__ops.toArray())
                 }
                 break
               }
@@ -246,7 +242,7 @@ export function runner(context: any, operations: List<Operation>) {
                     matchResult
                   )
                 } else {
-                  stack.push(...toArray(x.__ops as any) as any)
+                  stack.push(...x.__ops.toArray())
                 }
                 break
               }

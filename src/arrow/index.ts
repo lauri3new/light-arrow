@@ -1,11 +1,9 @@
 /* eslint-disable @typescript-eslint/no-redeclare */
-import {
-  first, List, list, prepend
-} from '@funkia/list'
 import { Either } from '../either'
 import { Operation, Ops } from './internal/operations'
 import { runAsPromiseResult } from './internal/runAsPromiseResult'
 import { runner } from './internal/runner'
+import { Stack } from './internal/stack'
 
 /**
  * Arrows are data structures that describe asynchronous operations that can succeed with a result value R or fail with a value E that depends on some dependencies D.
@@ -14,7 +12,7 @@ export interface Arrow<D, E, R> {
   /**
   * This is an internal property, an immutable stack of the current operations.
   */
-  __ops: List<Operation>
+  __ops: Stack<Operation>
   /**
   * Returns an Arrow with the result value mapped by the function f.
   */
@@ -116,14 +114,14 @@ export interface Arrow<D, E, R> {
 class InternalArrow<D, E, R> {
   private ctx: any
 
-  private operations: List<Operation>
+  private operations: Stack<Operation>
 
-  public get __ops(): List<Operation> {
+  public get __ops(): Stack<Operation> {
     return this.operations
   }
 
   static all<D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> {
-    return new InternalArrow<D, E, R[]>(undefined, list({
+    return new InternalArrow<D, E, R[]>(undefined, new Stack({
       _tag: Ops.all,
       f,
       concurrencyLimit
@@ -131,7 +129,7 @@ class InternalArrow<D, E, R> {
   }
 
   static race<D, E, R>(f: Arrow<D, E, R>[]): Arrow<D, E, R> {
-    return new InternalArrow<D, E, R>(undefined, list({
+    return new InternalArrow<D, E, R>(undefined, new Stack({
       _tag: Ops.race,
       f
     }))
@@ -142,7 +140,7 @@ class InternalArrow<D, E, R> {
   }
 
   static resolve<R, D = {}>(f: R): Arrow<D, never, R> {
-    return new InternalArrow(undefined, list({
+    return new InternalArrow(undefined, new Stack({
       _tag: Ops.value,
       f
     })) as any
@@ -150,14 +148,14 @@ class InternalArrow<D, E, R> {
 
   // TODO: reader D
   static construct<D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<D, E, R> {
-    return new InternalArrow(undefined, list({
+    return new InternalArrow(undefined, new Stack({
       _tag: Ops.construct,
       f
     }))
   }
 
-  private constructor(f?: (_:D) => Promise<Either<E, R>>, initialOps?: List<Operation>, initialContext?: any) {
-    this.operations = initialOps || list<{ _tag: Ops, f: any }>({
+  private constructor(f?: (_:D) => Promise<Either<E, R>>, initialOps?: Stack<Operation>, initialContext?: any) {
+    this.operations = initialOps || new Stack<{ _tag: Ops, f: any }>({
       _tag: Ops.promiseBased,
       f
     })
@@ -165,148 +163,139 @@ class InternalArrow<D, E, R> {
   }
 
   map<R2>(f: (_:R) => R2): Arrow<D, E, R2> {
-    if (first(this.operations)?._tag === Ops.value) {
-      return new InternalArrow<D, E, R2>(undefined, list({
+    if (this.operations.head?.val?._tag === Ops.value) {
+      return new InternalArrow<D, E, R2>(undefined, new Stack({
         _tag: Ops.value,
-        f: f(first(this.operations)?.f)
+        f: f(this.operations.head?.val?.f)
       }))
     }
-    return new InternalArrow<D, E, R2>(undefined, prepend({
-      _tag: Ops.map,
-      f
-    },
-    this.operations))
+    return new InternalArrow<D, E, R2>(undefined, this.operations
+      .prepend({
+        _tag: Ops.map,
+        f
+      }))
   }
 
   biMap<E2, R2>(f: (_:E) => E2, g: (_:R) => R2): Arrow<D, E2, R2> {
-    return new InternalArrow<D, E2, R2>(undefined, prepend({
+    return new InternalArrow<D, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.map,
       f: g
-    },
-    prepend({
+    }).prepend({
       _tag: Ops.leftMap,
       f
-    },
-    this.operations)))
+    }))
   }
 
   leftMap<E2>(f: (_:E) => E2): Arrow<D, E2, R> {
-    return new InternalArrow<D, E2, R>(undefined, prepend({
+    return new InternalArrow<D, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.leftMap,
       f
-    },
-    this.operations))
+    }))
   }
 
   flatMap<D2, E2, R2>(f: (_:R) => Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R2> {
-    return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.flatMap,
       f
-    },
-    this.operations))
+    }))
   }
 
   race<D, E, R>(f: Arrow<D, E, R>): Arrow<D, E, R> {
-    return new InternalArrow<D, E, R>(undefined, list({
+    return new InternalArrow<D, E, R>(undefined, new Stack({
       _tag: Ops.race,
       f: [this, f]
     }))
   }
 
   groupParallel<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
-    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, list({
+    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, new Stack({
       _tag: Ops.all,
       f: [this, f]
     }))
   }
 
   flatMapF<D2, E2, R2>(f: (_:R) => (_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E | E2, R2> {
-    return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.flatMap,
       f: f as any
-    },
-    this.operations))
+    }))
   }
 
   orElse<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E2, R | R2> {
-    return new InternalArrow<D & D2, E2, R | R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R | R2>(undefined, this.operations.prepend({
       _tag: Ops.orElse,
       f
-    },
-    this.operations))
+    }))
   }
 
   orElseF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R | R2> {
-    return new InternalArrow<D & D2, E2, R | R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R | R2>(undefined, this.operations.prepend({
       _tag: Ops.orElse,
       f
-    },
-    this.operations))
+    }))
   }
 
   andThen<E2, R2>(f:Arrow<R, E2, R2>): Arrow<D, E | E2, R2> {
-    return new InternalArrow<D, E2, R2>(undefined, prepend({
+    return new InternalArrow<D, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.andThen,
       f
-    },
-    this.operations))
+    }))
   }
 
   andThenF<E2, R2>(f:(_:R) => Promise<Either<E2, R2>>): Arrow<D, E | E2, R2> {
-    return new InternalArrow<D, E2, R2>(undefined, prepend({
+    return new InternalArrow<D, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.andThen,
       f
-    },
-    this.operations))
+    }))
   }
 
   group<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
-    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, this.operations.prepend({
       _tag: Ops.group,
       f
-    }, this.operations))
+    }))
   }
 
   groupF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E | E2, [R, R2]> {
-    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, [R, R2]>(undefined, this.operations.prepend({
       _tag: Ops.group,
       f
-    }, this.operations))
+    }))
   }
 
   groupFirst<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, R> {
-    return new InternalArrow<D & D2, E2, R>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.groupFirst,
       f
-    }, this.operations))
+    }))
   }
 
   groupFirstF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R> {
-    return new InternalArrow<D & D2, E2, R>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.groupFirst,
       f
-    }, this.operations))
+    }))
   }
 
   groupSecond<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E2, R2> {
-    return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.groupSecond,
       f
-    }, this.operations))
+    }))
   }
 
   groupSecondF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R2> {
-    return new InternalArrow<D & D2, E2, R2>(undefined, prepend({
+    return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.groupSecond,
       f
-    }, this.operations))
+    }))
   }
 
   bracket<D2>(f: (_:R) => Arrow<D2, never, any>) {
-    return <D3, E2, R2>(g: (_:R) => Arrow<D3, E2, R2>): Arrow<D & D2 & D3, E | E2, R2> => new InternalArrow<D & D2 & D3, E2, R2>(undefined, prepend({
+    return <D3, E2, R2>(g: (_:R) => Arrow<D3, E2, R2>): Arrow<D & D2 & D3, E | E2, R2> => new InternalArrow<D & D2 & D3, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.bracket,
       f: [f, g]
-    }, this.operations))
+    }))
   }
 
   async runAsPromiseResult(

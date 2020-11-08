@@ -10,6 +10,19 @@ it('Arrow should map', async () => {
   expect(result).toEqual(3)
 })
 
+it('Arrow should be immutable', async () => {
+  const a = Arrow<{}, never, number>(async () => Right(1))
+  const result = await a
+    .map(a => a * 2)
+    .runAsPromiseResult({})
+  expect(result).toEqual(2)
+
+  const result1 = await a
+    .map(a => a * 3)
+    .runAsPromiseResult({})
+  expect(result1).toEqual(3)
+})
+
 it('Arrow should map - fail', async () => {
   const { error, result } = await Arrow<{}, never, number>(async () => Right(1))
     .flatMap(() => Arrow<{}, number, never>(async () => Left(1)))
