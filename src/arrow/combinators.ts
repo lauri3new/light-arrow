@@ -106,7 +106,7 @@ export function groupParallel(...as: Arrow<any, any, any>[]) {
 }
 
 /**
- * Convert a list of arrows into a single Arrow returning a list of result (R) values, running the operations in sequence.
+ * Convert a array of arrows into a single Arrow returning a array of result (R) values, running the operations in sequence.
  */
 export const sequence = <D, E, R>(as: Arrow<D, E, R>[]): Arrow<D, E, R[]> => as.reduce(
   (acc, arrowR) => acc.flatMap((a: any) => arrowR.map(c => [...a, c])), Arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
