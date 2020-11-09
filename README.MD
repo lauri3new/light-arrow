@@ -4,7 +4,7 @@
 </div>
 
 <p align="center">
-<img alt="npm" src="https://img.shields.io/npm/v/light-arrow?color=g">
+<img alt="npm" src="https://img.shields.io/npm/v/@light-arrow/arrow?color=g">
 <img alt="GitHub Workflow Status" src="https://img.shields.io/github/workflow/status/lauri3new/light-arrow/Node.js%20CI">
 </p>
 
