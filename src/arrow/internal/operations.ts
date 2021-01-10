@@ -15,7 +15,8 @@ export enum Ops {
   race = 11,
   bracket = 12,
   value = 13,
-  construct = 14
+  construct = 14,
+  leftFlatMap = 15
 }
 
 type map = {
@@ -89,6 +90,11 @@ type construct = {
   f: (_: any) => (resolve: (_: any) => void, reject: (_: any) => void) => void | (() => void)
 }
 
-export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | promiseBased | all | race | bracket | value | construct
+type leftFlatMap = {
+  _tag: Ops.leftFlatMap
+  f: (result: any) => Arrow<any, any, any>
+}
+
+export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | promiseBased | all | race | bracket | value | construct | leftFlatMap
 
 export type Runnable = promiseBased | construct

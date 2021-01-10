@@ -56,6 +56,24 @@ it('Arrow should leftMap', async () => {
   expect(error).toEqual(3)
 })
 
+it('Arrow should leftFlatMap', async () => {
+  const {
+    error
+  } = await Arrow<{}, number, never>(async () => Left(1))
+    .leftFlatMap(a => resolve(a * 3))
+    .runAsPromise({})
+  expect(error).toEqual(3)
+})
+
+it('Arrow should leftFlatMap - right', async () => {
+  const {
+    error
+  } = await Arrow<{}, never, number>(async () => Right(1))
+    .leftFlatMap(a => resolve(a * 3))
+    .runAsPromise({})
+  expect(error).toEqual(undefined)
+})
+
 it('Arrow should biMap - right', async () => {
   const {
     error, result

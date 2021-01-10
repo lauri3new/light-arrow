@@ -1,5 +1,5 @@
 import { Right } from '../either/index'
-import { Arrow } from './index'
+import { all, Arrow, resolve } from './index'
 
 /**
  * Returns an Arrow that will return the result value of the first succesful Arrow.
@@ -106,7 +106,7 @@ export function groupParallel(...as: Arrow<any, any, any>[]) {
 }
 
 /**
- * Convert a array of arrows into a single Arrow returning a array of result (R) values, running the operations in sequence.
+ * Convert an array of arrows into a single Arrow returning a array of result (R) values, running the operations in sequence.
  */
 export const sequence = <D, E, R>(as: Arrow<D, E, R>[]): Arrow<D, E, R[]> => as.reduce(
   (acc, arrowR) => acc.flatMap((a: any) => arrowR.map(c => [...a, c])), Arrow<D, E, R[]>(async (_: D) => Right<R[]>([]))
@@ -121,3 +121,45 @@ export const retry = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R>
  * Returns an Arrow that will repeat the operation until first succesful run.
  */
 export const repeat = (n: number) => <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, R> => (n === 1 ? a : a.groupSecond(repeat(n - 1)(a)))
+
+// Functor
+
+export const as = <D, E, R, R1>(a: Arrow<D, E, R>, r: R1): Arrow<D, E, R1> => a.map(() => r)
+
+export const lift = <R, R1>(f: (_:R) => R1) => <D, E>(a: Arrow<D, E, R>) => a.map(f)
+
+export const product = <D, E, R>(a: Arrow<D, E, R>) => <R1>(f: (_:R) => R1): Arrow<D, E, [R, R1]> => a.map(r => [r, f(r)])
+
+export const productLeft = <D, E, R>(a: Arrow<D, E, R>) => <R1>(f: (_:R) => R1): Arrow<D, E, [R1, R]> => a.map(r => [f(r), r])
+
+export const tupleLeft = <D, E, R, R1>(a: Arrow<D, E, R>, r1: R1): Arrow<D, E, [R1, R]> => a.map(r => [r1, r])
+
+export const tupleRight = <D, E, R, R1>(a: Arrow<D, E, R>, r1: R1): Arrow<D, E, [R, R1]> => a.map(r => [r, r1])
+
+export const voidR = <D, E, R>(a: Arrow<D, E, R>): Arrow<D, E, void> => a.map(() => undefined)
+
+export const tap = <D, E, R>(f: (_:R) => void) => (a: Arrow<D, E, R>) => a.map(r => {
+  f(r)
+  return r
+})
+
+// traverse innit..
+
+export const traverse = <A>(as: A[]) => <D, E, R>(f: (_:A) => Arrow<D, E, R>): Arrow<D, E, R[]> => sequence(as.map(f))
+export const traverseParallel = <A>(as: A[]) => <D, E, R>(f: (_:A) => Arrow<D, E, R>): Arrow<D, E, R[]> => all(as.map(f))
+export const forEach = traverse
+export const forEachParallel = traverseParallel
+
+// applicative
+
+// monad
+
+export const flatTap = <R, D2, R1>(f: (_:R) => Arrow<D2, never, R1>) => <D, E>(a: Arrow<D & D2, E, R>) => a.flatMap(r => {
+  return f(r).andThen(resolve(r))
+})
+
+export const flatten = <D, D2, E, E2, R>(a: Arrow<D, E, Arrow<D2, E2, R>>): Arrow<D & D2, E | E2, R> => a.flatMap(a => a)
+
+export const map2 = <D, D2, E, E2, R, R1, R2>(f: (_:R, __:R1) => R2) => (
+  a: Arrow<D, E, R>, b: Arrow<D2, E2, R1>
+): Arrow<D & D2, E | E2, R2> => a.flatMap(r => b.map(r1 => f(r, r1)))

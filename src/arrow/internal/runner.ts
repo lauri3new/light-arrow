@@ -98,6 +98,11 @@ export function runner(context: any, operations: Stack<Operation>) {
                 }
                 break
               }
+              case Ops.leftFlatMap: {
+                x = await op.f(error).runAsPromise(error)
+                error = x.result
+                break
+              }
               case Ops.orElse: {
                 resetError()
                 if (typeof op.f === 'function') {
