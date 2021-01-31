@@ -28,7 +28,7 @@ export interface Arrow<D, E, R> {
   /**
   * Returns an Arrow with the error value mapped by the function f.
   */
-  leftFlatMap: <D2, E2, R2>(f: (_:E) => Arrow<D2, never, E2>) => Arrow<D & D2, E2, R2>
+  leftFlatMap: <D2, E2>(f: (_:E) => Arrow<D2, never, E2>) => Arrow<D & D2, E2, R>
   /**
   * Returns an Arrow with the error value mapped by the function f, and the result value mapped by function g.
   */
@@ -204,7 +204,7 @@ class InternalArrow<D, E, R> {
     }))
   }
   
-  leftFlatMap<D2, E2, R>(f: (_:E) => Arrow<D2, never, E2>): Arrow<D & D2, E2, R> {
+  leftFlatMap<D2, E2>(f: (_:E) => Arrow<D2, never, E2>): Arrow<D & D2, E2, R> {
     return new InternalArrow<D & D2, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.leftFlatMap,
       f
