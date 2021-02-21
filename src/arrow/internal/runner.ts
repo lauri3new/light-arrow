@@ -29,12 +29,15 @@ export function runner(context: any, operations: Stack<Operation>) {
     result = [result, r]
   }
   const mergeCtx = (c: any) => {
-    console.log(c)
-    let x = typeof c
-    if (['object', 'undefined'].includes(x)) {
-      ctx = { ...ctx, ...c }
+    let x = typeof ctx
+    if (x === 'object') {
+      return { ...ctx, ...c }
+    } else if (x === 'undefined') {
+      return c
+    } else if (typeof c !== 'undefined') {
+      return c
     } else {
-      ctx = c
+      return ctx
     }
   }
   const noChange = () => {}
@@ -109,7 +112,7 @@ export function runner(context: any, operations: Stack<Operation>) {
               }
               case Ops.leftFlatMap: {
                 x = op.f(error)
-                mergeCtx(x.__ctx)
+                ctx = mergeCtx(x.__ctx)
                 x = await op.f(error).runAsPromise(ctx)
                 error = x.result
                 break
@@ -123,7 +126,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  mergeCtx(op.f.__ctx)
+                  ctx = mergeCtx(op.f.__ctx)
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -137,9 +140,9 @@ export function runner(context: any, operations: Stack<Operation>) {
               }
               case Ops.bracket: {
                 x = op.f[1](result)
-                x = await x.runAsPromise({ ...ctx, ...x.__ctx })
+                x = await x.runAsPromise(mergeCtx(x.__ctx))
                 let a = op.f[0](result)
-                await a.runAsPromise({ ...ctx, ...a.__ctx })
+                await a.runAsPromise(mergeCtx(a.__ctx))
                 if (x.failure) {
                   throw x.failure
                 }
@@ -180,7 +183,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                 }
                 break
               case Ops.race:
-                result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult({ ...ctx, ..._f.__ctx })))
+                result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult(mergeCtx(_f.__ctx))))
                 break
               case Ops.andThen: {
                 if (typeof op.f === 'function') {
@@ -190,7 +193,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  mergeCtx(op.f.__ctx)
+                  ctx = mergeCtx(op.f.__ctx)
                   x = await op.f.runAsPromise(result)
                   if (x.failure) {
                     throw x.failure
@@ -211,7 +214,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchGroupResult
                   )
                 } else {
-                  x = await op.f.runAsPromise({ ...ctx, ...op.f.__ctx })
+                  x = await op.f.runAsPromise(mergeCtx(op.f.__ctx))
                   if (x.failure) {
                     throw x.failure
                   }
@@ -231,7 +234,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     noChange
                   )
                 } else {
-                  x = await op.f.runAsPromise({ ...ctx, ...op.f.__ctx })
+                  x = await op.f.runAsPromise(mergeCtx(op.f.__ctx))
                   if (x.failure) {
                     throw x.failure
                   }
@@ -249,7 +252,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  mergeCtx(op.f.__ctx)
+                  ctx = mergeCtx(op.f.__ctx)
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -263,7 +266,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  mergeCtx(x.__ctx)
+                  ctx = mergeCtx(x.__ctx)
                   stack.push(...x.__ops.toArray())
                 }
                 break

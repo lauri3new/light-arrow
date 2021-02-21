@@ -134,7 +134,21 @@ class InternalArrow<D, E, R> {
 
   static provideSome<D2>(a: D2) {
     return function<D, E, R>(f: Arrow<D & D2, E, R>): Arrow<D, E, R> {
-      return new InternalArrow<D, E, R>(undefined, f.__ops, { ...f.__ctx, ...a })
+      if (['object', 'undefined'].includes(typeof a)) {
+        return new InternalArrow<D, E, R>(undefined, f.__ops, { ...f.__ctx, ...a })
+      } else {
+        return new InternalArrow<D, E, R>(undefined, f.__ops, a)
+      }
+    }
+  }
+
+  static provideAll<D>(a: D) {
+    return function<E, R>(f: Arrow<D, E, R>): Arrow<{}, E, R> {
+      if (['object', 'undefined'].includes(typeof a)) {
+        return new InternalArrow<{}, E, R>(undefined, f.__ops, { ...f.__ctx, ...a })
+      } else {
+        return new InternalArrow<{}, E, R>(undefined, f.__ops, a)
+      }
     }
   }
 
@@ -421,3 +435,5 @@ export const constructTask = <E, R>(f: (resolve: (_: R) => void, reject: (_: E) 
 export const provideSome = <D2>(a: D2) => <D, E, R>(f: Arrow<D2 & D, E, R>) => InternalArrow.provideSome<D2>(a)<D, E, R>(f)
 
 export const provideSomeA = <D3, E2, D2>(a: Arrow<D3, E2, D2>) => <D, E, R>(f: Arrow<D2 & D, E, R>): Arrow<D3 & D, E | E2, R>  => a.flatMap(a => provideSome(a)(f))
+
+export const provideAll = <D>(a: D) => <E, R>(f: Arrow<D, E, R>) => InternalArrow.provideAll<D>(a)<E, R>(f)

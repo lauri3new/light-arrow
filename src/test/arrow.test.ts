@@ -1,15 +1,7 @@
 import { reject } from '../arrow/creators'
-import { Arrow, provideSome, provideSomeA, resolve } from '../arrow/index'
+import { Arrow, provideAll, provideSome, provideSomeA, resolve } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
-
-it('Arrow should map', async () => {
-  const result = await Arrow<string, never, number>(async () => Right(1))
-    .map(a => a * 3)
-    .flatMap(() => Arrow<string, never, string>(async (a) => Right(a)))
-    .runAsPromiseResult("hey")
-  expect(result).toEqual("hey")
-})
 
 it('Arrow should map', async () => {
   const result = await Arrow<{}, never, number>(async () => Right(1))
@@ -342,5 +334,32 @@ it('provideSomeA should eliminate dependency', async () => {
   const pa =  Arrow(async (a: depC) => Right({ ok: () => 3 } as depA))
   const x = provideSomeA(pa)(a)
   const result = await x.runAsPromiseResult({ nok: () => 'yahoo', x: 'x' })
+  expect(result).toEqual(3)
+})
+
+
+it('Arrow should preserve basic type dep', async () => {
+  const result = await Arrow<string, never, number>(async () => Right(1))
+    .map(a => a * 3)
+    .flatMap(() => Arrow<string, never, string>(async (a) => Right(a)))
+    .runAsPromiseResult("hey")
+  expect(result).toEqual("hey")
+})
+
+it('Arrow should preserve basic type dep', async () => {
+  const result = await Arrow<string, never, number>(async () => Right(1))
+    .map(a => a * 3)
+    .flatMap(() => provideSome("xhe")(Arrow<string, never, string>(async (a) => Right(a))))
+    .runAsPromiseResult("hey")
+  expect(result).toEqual("xhe")
+})
+
+it('provide should eliminate all dependencies', async () => {
+  type depA = { ok:() => number }
+  type depB = { nok: () => string }
+  type twoDeps = depA & depB
+  const a = Arrow<twoDeps, never, number>(async (a) => Right(a.ok()))
+  const x = provideAll({ ok: () => 3, nok: () => 'string' } as twoDeps)(a)
+  const result = await x.runAsPromiseResult({})
   expect(result).toEqual(3)
 })
