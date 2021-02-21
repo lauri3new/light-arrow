@@ -1,7 +1,15 @@
 import { reject } from '../arrow/creators'
-import { Arrow, provide, provideA, resolve } from '../arrow/index'
+import { Arrow, provideSome, provideSomeA, resolve } from '../arrow/index'
 import { Left, Right } from '../either'
 import { sleep } from './helpers'
+
+it('Arrow should map', async () => {
+  const result = await Arrow<string, never, number>(async () => Right(1))
+    .map(a => a * 3)
+    .flatMap(() => Arrow<string, never, string>(async (a) => Right(a)))
+    .runAsPromiseResult("hey")
+  expect(result).toEqual("hey")
+})
 
 it('Arrow should map', async () => {
   const result = await Arrow<{}, never, number>(async () => Right(1))
@@ -299,7 +307,7 @@ it('provide should eliminate dependency', async () => {
   type depB = { nok: () => string }
   type twoDeps = depA & depB
   const a = Arrow<twoDeps, never, number>(async (a) => Right(a.ok()))
-  const x = provide({ ok: () => 3 } as depA)(a)
+  const x = provideSome({ ok: () => 3 } as depA)(a)
   const result = await x.runAsPromiseResult({ nok: () => 'yahoo' })
   expect(result).toEqual(3)
 })
@@ -309,7 +317,7 @@ it('provide should eliminate dependency', async () => {
   type depB = { nok: () => string }
   type twoDeps = depA & depB
   const a = Arrow<twoDeps, never, number>(async (a) => Right(a.ok()))
-  const x = provide({ ok: () => 3 } as depA)(a)
+  const x = provideSome({ ok: () => 3 } as depA)(a)
   const result = await x.runAsPromiseResult({ nok: () => 'yahoo' })
   expect(result).toEqual(3)
 })
@@ -319,20 +327,20 @@ it('provide should eliminate dependency', async () => {
   type depB = { nok: () => string }
   type twoDeps = depA & depB
   const a = Arrow<twoDeps, never, number>(async (a) => Right(a.ok()))
-  const x = provide({ ok: () => 3, nok: () => 'yo' } as twoDeps)<{}, never, number>(a)
+  const x = provideSome({ ok: () => 3, nok: () => 'yo' } as twoDeps)<{}, never, number>(a)
   const ok = resolve({}).andThen(x)
   const result = await ok.runAsPromiseResult({})
   expect(result).toEqual(3)
 })
 
-it('provideA should eliminate dependency', async () => {
+it('provideSomeA should eliminate dependency', async () => {
   type depA = { ok:() => number }
   type depB = { nok: () => string }
   type depC = { x: string }
   type twoDeps = depA & depB
   const a = Arrow(async (a: twoDeps) => Right(a.ok()))
   const pa =  Arrow(async (a: depC) => Right({ ok: () => 3 } as depA))
-  const x = provideA(pa)(a)
+  const x = provideSomeA(pa)(a)
   const result = await x.runAsPromiseResult({ nok: () => 'yahoo', x: 'x' })
   expect(result).toEqual(3)
 })

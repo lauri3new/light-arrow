@@ -28,6 +28,15 @@ export function runner(context: any, operations: Stack<Operation>) {
   const matchGroupResult = (r: any) => {
     result = [result, r]
   }
+  const mergeCtx = (c: any) => {
+    console.log(c)
+    let x = typeof c
+    if (['object', 'undefined'].includes(x)) {
+      ctx = { ...ctx, ...c }
+    } else {
+      ctx = c
+    }
+  }
   const noChange = () => {}
   const _run = (op: Runnable) => {
     switch (op._tag) {
@@ -100,7 +109,7 @@ export function runner(context: any, operations: Stack<Operation>) {
               }
               case Ops.leftFlatMap: {
                 x = op.f(error)
-                ctx = { ...ctx, ...x.__ctx }
+                mergeCtx(x.__ctx)
                 x = await op.f(error).runAsPromise(ctx)
                 error = x.result
                 break
@@ -114,7 +123,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  ctx = { ...ctx, ...op.f.__ctx }
+                  mergeCtx(op.f.__ctx)
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -181,7 +190,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  ctx = { ...ctx, ...op.f.__ctx }
+                  mergeCtx(op.f.__ctx)
                   x = await op.f.runAsPromise(result)
                   if (x.failure) {
                     throw x.failure
@@ -240,7 +249,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  ctx = { ...ctx, ...op.f.__ctx }
+                  mergeCtx(op.f.__ctx)
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -254,7 +263,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
-                  ctx = { ...ctx, ...x.__ctx }
+                  mergeCtx(x.__ctx)
                   stack.push(...x.__ops.toArray())
                 }
                 break

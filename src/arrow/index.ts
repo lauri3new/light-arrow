@@ -117,10 +117,6 @@ export interface Arrow<D, E, R> {
   * Like groupSecond but accepts a function returning a Promise<Either>.
   */
   groupSecondF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
-  // /**
-  //  * stuff
-  //  */
-  // provide: <D2, E2, R2>(f:D2) => Arrow<D & D2, E | E2, R2>
 }
 
 class InternalArrow<D, E, R> {
@@ -136,7 +132,7 @@ class InternalArrow<D, E, R> {
     return this.ctx
   }
 
-  static provide<D2>(a: D2) {
+  static provideSome<D2>(a: D2) {
     return function<D, E, R>(f: Arrow<D & D2, E, R>): Arrow<D, E, R> {
       return new InternalArrow<D, E, R>(undefined, f.__ops, { ...f.__ctx, ...a })
     }
@@ -422,6 +418,6 @@ export const construct = <D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject
 export const constructTask = <E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<{}, E, R> => InternalArrow.construct(() => f)
 
 
-export const provide = <D2>(a: D2) => <D, E, R>(f: Arrow<D2 & D, E, R>) => InternalArrow.provide<D2>(a)<D, E, R>(f)
+export const provideSome = <D2>(a: D2) => <D, E, R>(f: Arrow<D2 & D, E, R>) => InternalArrow.provideSome<D2>(a)<D, E, R>(f)
 
-export const provideA = <D3, E2, D2>(a: Arrow<D3, E2, D2>) => <D, E, R>(f: Arrow<D2 & D, E, R>): Arrow<D3 & D, E | E2, R>  => a.flatMap(a => provide(a)(f))
+export const provideSomeA = <D3, E2, D2>(a: Arrow<D3, E2, D2>) => <D, E, R>(f: Arrow<D2 & D, E, R>): Arrow<D3 & D, E | E2, R>  => a.flatMap(a => provideSome(a)(f))
