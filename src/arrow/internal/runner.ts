@@ -12,7 +12,7 @@ export function runner(context: any, operations: Stack<Operation>) {
   let x: any
   let isLeft: boolean = false
   let error: any
-  const ctx = context || {}
+  let ctx = context || {}
 
   const matchError = (e: any) => {
     isLeft = true
@@ -99,7 +99,9 @@ export function runner(context: any, operations: Stack<Operation>) {
                 break
               }
               case Ops.leftFlatMap: {
-                x = await op.f(error).runAsPromise(error)
+                x = op.f(error)
+                ctx = { ...ctx, ...x.__ctx }
+                x = await op.f(error).runAsPromise(ctx)
                 error = x.result
                 break
               }
@@ -112,6 +114,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
+                  ctx = { ...ctx, ...op.f.__ctx }
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -124,8 +127,10 @@ export function runner(context: any, operations: Stack<Operation>) {
                 break
               }
               case Ops.bracket: {
-                x = await op.f[1](result).runAsPromise(context)
-                await op.f[0](result).runAsPromise(context)
+                x = op.f[1](result)
+                x = await x.runAsPromise({ ...ctx, ...x.__ctx })
+                let a = op.f[0](result)
+                await a.runAsPromise({ ...ctx, ...a.__ctx })
                 if (x.failure) {
                   throw x.failure
                 }
@@ -166,7 +171,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                 }
                 break
               case Ops.race:
-                result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult(context)))
+                result = await Promise.race(op.f.map(_f => _f.runAsPromiseResult({ ...ctx, ..._f.__ctx })))
                 break
               case Ops.andThen: {
                 if (typeof op.f === 'function') {
@@ -176,6 +181,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
+                  ctx = { ...ctx, ...op.f.__ctx }
                   x = await op.f.runAsPromise(result)
                   if (x.failure) {
                     throw x.failure
@@ -196,7 +202,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchGroupResult
                   )
                 } else {
-                  x = await op.f.runAsPromise(ctx)
+                  x = await op.f.runAsPromise({ ...ctx, ...op.f.__ctx })
                   if (x.failure) {
                     throw x.failure
                   }
@@ -216,7 +222,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     noChange
                   )
                 } else {
-                  x = await op.f.runAsPromise(ctx)
+                  x = await op.f.runAsPromise({ ...ctx, ...op.f.__ctx })
                   if (x.failure) {
                     throw x.failure
                   }
@@ -234,6 +240,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
+                  ctx = { ...ctx, ...op.f.__ctx }
                   stack.push(...op.f.__ops.toArray())
                 }
                 break
@@ -247,6 +254,7 @@ export function runner(context: any, operations: Stack<Operation>) {
                     matchResult
                   )
                 } else {
+                  ctx = { ...ctx, ...x.__ctx }
                   stack.push(...x.__ops.toArray())
                 }
                 break

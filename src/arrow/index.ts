@@ -10,6 +10,10 @@ import { Stack } from './internal/stack'
  */
 export interface Arrow<D, E, R> {
   /**
+  * This is an internal property, the current context of the Arrow.
+  */
+ __ctx: any
+  /**
   * This is an internal property, an immutable stack of the current operations.
   */
   __ops: Stack<Operation>
@@ -44,19 +48,19 @@ export interface Arrow<D, E, R> {
   /**
   * Returns an Arrow with the result values in a tuple of the two grouped Arrows.
   */
-  group: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
+  group: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
   /**
   * Returns an Arrow with the first result value of the two grouped Arrows.
   */
-  groupFirst: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R>
+  groupFirst: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R>
   /**
   * Returns an Arrow with the second result value of the two grouped Arrows.
   */
-  groupSecond: <D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
+  groupSecond: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R2>
   /**
   * Returns an Arrow with the result values in a tuple of the two grouped Arrows, running the operations in parallel.
   */
-  groupParallel:<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
+  groupParallel:<D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, [R, R2]>
   /**
   * bracket is useful for modelling effects that consume resources that are used and then released, it accepts a 'release' function that always executes after the second argument 'usage' function has executed, regardless of if it has failed or succeeded. The return type is an Arrow with the result type determined by the 'usage' function.
   */
@@ -104,15 +108,19 @@ export interface Arrow<D, E, R> {
   /**
   * Like group but accepts a function returning a Promise<Either>.
   */
-  groupF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, [R, R2]>
+  groupF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, [R, R2]>
   /**
   * Like groupFirst but accepts a function returning a Promise<Either>.
   */
-  groupFirstF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R>
+  groupFirstF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R>
   /**
   * Like groupSecond but accepts a function returning a Promise<Either>.
   */
-  groupSecondF: <D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
+  groupSecondF: <D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>) => Arrow<D & D2, E | E2, R2>
+  // /**
+  //  * stuff
+  //  */
+  // provide: <D2, E2, R2>(f:D2) => Arrow<D & D2, E | E2, R2>
 }
 
 class InternalArrow<D, E, R> {
@@ -122,6 +130,16 @@ class InternalArrow<D, E, R> {
 
   public get __ops(): Stack<Operation> {
     return this.operations
+  }
+
+  public get __ctx(): any {
+    return this.ctx
+  }
+
+  static provide<D2>(a: D2) {
+    return function<D, E, R>(f: Arrow<D & D2, E, R>): Arrow<D, E, R> {
+      return new InternalArrow<D, E, R>(undefined, f.__ops, { ...f.__ctx, ...a })
+    }
   }
 
   static all<D, E, R>(f: Arrow<D, E, R>[], concurrencyLimit?: number): Arrow<D, E, R[]> {
@@ -201,7 +219,8 @@ class InternalArrow<D, E, R> {
     return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.flatMap,
       f
-    }))
+    },
+    ))
   }
   
   leftFlatMap<D2, E2>(f: (_:E) => Arrow<D2, never, E2>): Arrow<D & D2, E2, R> {
@@ -218,7 +237,7 @@ class InternalArrow<D, E, R> {
     }))
   }
 
-  groupParallel<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
+  groupParallel<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
     return new InternalArrow<D & D2, E2, [R, R2]>(undefined, new Stack({
       _tag: Ops.all,
       f: [this, f]
@@ -260,42 +279,42 @@ class InternalArrow<D, E, R> {
     }))
   }
 
-  group<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
+  group<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, [R, R2]> {
     return new InternalArrow<D & D2, E2, [R, R2]>(undefined, this.operations.prepend({
       _tag: Ops.group,
       f
     }))
   }
 
-  groupF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E | E2, [R, R2]> {
+  groupF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E | E2, [R, R2]> {
     return new InternalArrow<D & D2, E2, [R, R2]>(undefined, this.operations.prepend({
       _tag: Ops.group,
       f
     }))
   }
 
-  groupFirst<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E | E2, R> {
+  groupFirst<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R> {
     return new InternalArrow<D & D2, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.groupFirst,
       f
     }))
   }
 
-  groupFirstF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R> {
+  groupFirstF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R> {
     return new InternalArrow<D & D2, E2, R>(undefined, this.operations.prepend({
       _tag: Ops.groupFirst,
       f
     }))
   }
 
-  groupSecond<D2, E2, R2>(f:Arrow<Partial<D> & D2, E2, R2>): Arrow<D & D2, E2, R2> {
+  groupSecond<D2, E2, R2>(f:Arrow<D2, E2, R2>): Arrow<D & D2, E2, R2> {
     return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.groupSecond,
       f
     }))
   }
 
-  groupSecondF<D2, E2, R2>(f:(_:Partial<D> & D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R2> {
+  groupSecondF<D2, E2, R2>(f:(_:D2) => Promise<Either<E2, R2>>): Arrow<D & D2, E2, R2> {
     return new InternalArrow<D & D2, E2, R2>(undefined, this.operations.prepend({
       _tag: Ops.groupSecond,
       f
@@ -401,3 +420,8 @@ export const construct = <D, E, R>(f: (_: D) => (resolve: (_: R) => void, reject
 * Similiar to `construct` but useful for when no dependencies are required from the returned Arrow.
 */
 export const constructTask = <E, R>(f: (resolve: (_: R) => void, reject: (_: E) => void) => void | (() => void)): Arrow<{}, E, R> => InternalArrow.construct(() => f)
+
+
+export const provide = <D2>(a: D2) => <D, E, R>(f: Arrow<D2 & D, E, R>) => InternalArrow.provide<D2>(a)<D, E, R>(f)
+
+export const provideA = <D3, E2, D2>(a: Arrow<D3, E2, D2>) => <D, E, R>(f: Arrow<D2 & D, E, R>): Arrow<D3 & D, E | E2, R>  => a.flatMap(a => provide(a)(f))
