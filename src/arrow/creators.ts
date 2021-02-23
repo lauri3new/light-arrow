@@ -39,13 +39,33 @@ export const drawFailableFunction = <R, D = {}, E = Error>(a:(_:D) => R): Arrow<
 export const reject = <E, D = {}>(a: E): Arrow<D, E, never> => Arrow(async (_:D) => Left(a))
 
 /**
- * Create an Arrow from a nullable value with either the error type as null or the result type as the value type, depending on if the value is null or not.
+ * Create an Arrow from a nullable value from the Arrows dependencies with either the error type as null or the result type as the value type.
  */
-export const drawNullable = <R>(
+export const drawNullable = <D, R>(
+  f:(_:D) => R | null | undefined
+): Arrow<D, null, R> => Arrow(async (d) => {
+  const r = f(d)
+  if (r === undefined || r === null) {
+    return Left(null) 
+  } else {
+    return Right(r)
+  }
+})
+
+/**
+ * Create an Arrow from a nullable value with either the error type as null or the result type as the value type.
+ */
+export const fromNullable = <R>(
   a: R | null | undefined
 ): Arrow<{}, null, R> => Arrow(async () => (a === undefined || a === null ? Left(null) : Right(a)))
+
+
+/**
+ * Create an Arrow from an Either type drawn from a dependency.
+ */
+export const drawEither = <D, E, R>(f:(_:D) => Either<E, R>):Arrow<D, E, R> => Arrow(async (d:D) => f(d))
 
 /**
  * Create an Arrow from an Either type.
  */
-export const drawEither = <E, R>(a:Either<E, R>):Arrow<{}, E, R> => Arrow(async (_:{}) => a)
+export const fromEither = <E, R>(a:Either<E, R>):Arrow<{}, E, R> => Arrow(async (_:{}) => a)
