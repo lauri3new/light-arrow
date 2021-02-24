@@ -1,6 +1,6 @@
 import { performance } from 'perf_hooks'
 import {
-  andThen, group, groupParallel, orElse, repeat, retry, sequence
+  andThen, group, groupParallel, ifOrElse, orElse, repeat, retry, sequence
 } from '../arrow/combinators'
 import { all, Arrow, race } from '../arrow/index'
 import { Left, Right } from '../either'
@@ -18,6 +18,36 @@ it('Arrow should orElse', async () => {
     .runAsPromiseResult({})
   expect(result).toEqual(1)
 })
+
+it('Arrow should ifOrElse', async () => {
+  const a = await Arrow<{}, number, never>(async () => Left(2))
+  const b = await Arrow<{}, never, string>(async () => Right('hey'))
+
+  const { result, error } = await ifOrElse(
+    a => a === 1,
+    a,
+    b
+  )
+    .runAsPromise({})
+  expect(error).toEqual(2)
+  expect(result).toBeUndefined()
+})
+
+
+it('Arrow should ifOrElse', async () => {
+  const a = await Arrow<{}, number, never>(async () => Left(2))
+  const b = await Arrow<{}, never, string>(async () => Right('hey'))
+
+  const { result, error } = await ifOrElse(
+    a => a === 2,
+    a,
+    b
+  )
+    .runAsPromise({})
+  expect(result).toEqual('hey')
+  expect(error).toBeUndefined()
+})
+
 
 it('Arrow should andThen', async () => {
   const a = await Arrow<{ num: number }, never, { num: number }>(async ({ num }) => Right({ num: num + 1 }))
