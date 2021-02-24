@@ -159,6 +159,25 @@ it('Arrow should orElse', async () => {
   expect(result).toEqual(2)
 })
 
+it('Arrow should ifOrElse', async () => {
+  const a = Arrow<{}, string, never>(async () => Left('hey'))
+    .ifOrElse(c => c === 'wasup', Arrow<{}, string, never>(async () => Left('yo')))
+
+    const { error } = await a
+    .runAsPromise({})
+  expect(error).toEqual('hey')
+})
+
+it('Arrow should ifOrElse', async () => {
+  const a = Arrow<{}, string, never>(async () => Left('hey'))
+    .ifOrElse(c => c === 'hey', Arrow<{}, string, never>(async () => Left('yo')))
+
+  const { error } = await a
+    .runAsPromise({})
+  expect(error).toEqual('yo')
+})
+
+
 it('Arrow should bracket', async () => {
   let flag = false
   const a = Arrow<{}, never, { ok: number }>(async () => Right({ ok: 123 }))

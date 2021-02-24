@@ -4,6 +4,34 @@ import { all, Arrow, resolve } from './index'
 /**
  * Returns an Arrow that will return the result value of the first succesful Arrow.
  */
+export function ifOrElse <D1, E1, R1, D2, E2, R2>(predicate: (_:E1) => boolean, a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E1 | E2, R1 | R2>
+export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3>(predicate: (_:E1 | E2) => boolean, a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>): Arrow<D1 & D2 & D3, E1 | E2 | E3, R1 | R2 | R3>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(predicate: (_:E1 | E2 | E3) => boolean, a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>) => Arrow<D1 & D2 & D3 & D4, E1 | E2 | E3 | E4, R1 | R2 | R3 | R4>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5>(predicate: (_:E1 | E2 | E3 | E4) => boolean):
+//   (a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>) => Arrow<D1 & D2 & D3 & D4 & D5, E1 | E2 | E3 | E4 | E5, R1 | R2 | R3 | R4 | R5>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6>(predicate: (_:E1 | E2 | E3 | E4 | E5) => boolean):
+//   (a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>) =>
+//   Arrow<D1 & D2 & D3 & D4 & D5 & D6, E1 | E2 | E3 | E4 | E5 | E6, R1 | R2 | R3 | R4 | R5 | R6>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7>(predicate: (_:E1 | E2 | E3 | E4 | E5 | E6) => boolean):
+//   (a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>) =>
+//   Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7, E1 | E2 | E3 | E4 | E5 | E6 | E7, R1 | R2 | R3 | R4 | R5 | R6 | R7>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8>(predicate: (_:E1 | E2 | E3 | E4 | E5 | E6 | E7) => boolean):
+//   (a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>, h: Arrow<D8, E8, R8>) => 
+//   Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8, R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8>
+// export function ifOrElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4, D5, E5, R5, D6, E6, R6, D7, E7, R7, D8, E8, R8, D9, E9, R9>(predicate: (_:E1 | E2 | E3 | E4 | E5 | E6 | E7) => boolean):
+//   (a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>, e: Arrow<D5, E5, R5>, f: Arrow<D6, E6, R6>, g: Arrow<D7, E7, R7>, h: Arrow<D8, E8, R8>, i: Arrow<D9, E9, R9>) =>
+//   Arrow<D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9, E1 | E2 | E3 | E4 | E5 | E6 | E7 | E8 | E9, R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 | R9>
+export function ifOrElse(predicate: any, ...as: any[]) {
+  if (as.length === 1) return as[0]
+  if (as.length === 2) return as[0].ifOrElse(predicate, as[1])
+  const [a, b, ...aas] = as
+  // @ts-ignore
+  return ifOrElse(a.ifOrElse(predicate, b), ...aas)
+}
+
+/**
+ * Returns an Arrow that will return the result value of the first succesful Arrow.
+ */
 export function orElse <D1, E1, R1, D2, E2, R2>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>): Arrow<D1 & D2, E2, R1 | R2>
 export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>): Arrow<D1 & D2 & D3, E3, R1 | R2 | R3>
 export function orElse <D1, E1, R1, D2, E2, R2, D3, E3, R3, D4, E4, R4>(a: Arrow<D1, E1, R1>, b: Arrow<D2, E2, R2>, c: Arrow<D3, E3, R3>, d: Arrow<D4, E4, R4>): Arrow<D1 & D2 & D3 & D4, E4, R1 | R2 | R3 | R4>

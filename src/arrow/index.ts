@@ -42,6 +42,10 @@ export interface Arrow<D, E, R> {
   */
   orElse: <D2, E2, R2>(f:Arrow<D2, E2, R2>) => Arrow<D & D2, E2, R | R2>
   /**
+  * Returns an Arrow that will run the second arrow only if the first fails and the predicate returns true.
+  */
+  ifOrElse<D2, E2, R2>(predicate: (_:E) => boolean, f:Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R | R2>
+  /**
   * Provides the result of the first Arrow as the dependencies of the next Arrow, allowing 'start to end' composition.
   */
   andThen: <E2, R2>(f: Arrow<R, E2, R2>) => Arrow<D, E | E2, R2>
@@ -265,6 +269,13 @@ class InternalArrow<D, E, R> {
     return new InternalArrow<D & D2, E2, R | R2>(undefined, this.operations.prepend({
       _tag: Ops.orElse,
       f
+    }))
+  }
+
+  ifOrElse<D2, E2, R2>(predicate: (_:E) => boolean, f:Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R | R2> {
+    return new InternalArrow<D & D2, E | E2, R | R2>(undefined, this.operations.prepend({
+      _tag: Ops.ifOrElse,
+      f: [predicate, f]
     }))
   }
 

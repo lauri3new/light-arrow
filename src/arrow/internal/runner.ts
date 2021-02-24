@@ -131,6 +131,14 @@ export function runner(context: any, operations: Stack<Operation>) {
                 }
                 break
               }
+              case Ops.ifOrElse: {
+                if (op.f[0](error)) {
+                resetError()
+                ctx = mergeCtx(op.f[1].__ctx)
+                stack.push(...op.f[1].__ops.toArray())
+                }
+                break
+              }
             }
           } else {
             switch (op._tag) {

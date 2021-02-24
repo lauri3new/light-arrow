@@ -16,7 +16,8 @@ export enum Ops {
   bracket = 12,
   value = 13,
   construct = 14,
-  leftFlatMap = 15
+  leftFlatMap = 15,
+  ifOrElse = 16
 }
 
 type map = {
@@ -32,6 +33,11 @@ type leftMap = {
 type orElse = {
   _tag: Ops.orElse
   f: Arrow<any, any, any> | ((context: any) => Promise<Either<any, any>>)
+}
+
+type ifOrElse = {
+  _tag: Ops.ifOrElse
+  f: [(_:any) => boolean, Arrow<any, any, any>]
 }
 
 type andThen = {
@@ -95,6 +101,6 @@ type leftFlatMap = {
   f: (result: any) => Arrow<any, any, any>
 }
 
-export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | promiseBased | all | race | bracket | value | construct | leftFlatMap
+export type Operation = map | leftMap | flatMap | orElse | group | andThen | groupFirst | groupSecond | promiseBased | all | race | bracket | value | construct | leftFlatMap | ifOrElse
 
 export type Runnable = promiseBased | construct
