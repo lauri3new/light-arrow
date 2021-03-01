@@ -18,6 +18,10 @@ export interface Arrow<D, E, R> {
   */
   __ops: Stack<Operation>
   /**
+  * Tap into the result type of the current Arrow.
+  */
+  tap: <R2>(f: (_:R) => void) => Arrow<D, E, R>
+  /**
   * Returns an Arrow with the result value mapped by the function f.
   */
   map: <R2>(f: (_:R) => R2) => Arrow<D, E, R2>
@@ -196,6 +200,17 @@ class InternalArrow<D, E, R> {
       f
     })
     this.ctx = initialContext
+  }
+
+  tap(f: (_:R) => void): Arrow<D, E, R> {
+    return new InternalArrow<D, E, R>(undefined, this.operations
+      .prepend({
+        _tag: Ops.map,
+        f: (r) => {
+          f(r)
+          return r
+        }
+      }))
   }
 
   map<R2>(f: (_:R) => R2): Arrow<D, E, R2> {

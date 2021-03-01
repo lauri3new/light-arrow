@@ -10,6 +10,18 @@ it('Arrow should map', async () => {
   expect(result).toEqual(3)
 })
 
+it('Arrow should tap', async () => {
+  let i = 0
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .map(a => a * 3)
+    .tap(a => {
+      i = a
+    })
+    .runAsPromiseResult({})
+  expect(result).toEqual(3)
+  expect(i).toEqual(3)
+})
+
 it('Arrow should be immutable', async () => {
   const a = Arrow<{}, never, number>(async () => Right(1))
   const result = await a
