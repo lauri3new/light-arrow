@@ -59,6 +59,22 @@ it('Arrow should flatMap - fail', async () => {
   expect(error).toEqual(1)
 })
 
+it('Arrow should flatMapIf - true', async () => {
+  const condition: boolean = true
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .flatMapIf(condition, a => Arrow<{}, never, number>(async () => Right(a * 3)))
+    .runAsPromiseResult({})
+  expect(result).toEqual(3)
+})
+
+it('Arrow should flatMapIf - false', async () => {
+  const condition: boolean = false
+  const result = await Arrow<{}, never, number>(async () => Right(1))
+    .flatMapIf(condition, a => Arrow<{}, never, number>(async () => Right(a * 3)))
+    .runAsPromiseResult({})
+  expect(result).toEqual(1)
+})
+
 it('Arrow should leftMap', async () => {
   const {
     error

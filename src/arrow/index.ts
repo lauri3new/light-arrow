@@ -32,6 +32,10 @@ export interface Arrow<D, E, R> {
   /**
   * Returns an Arrow with the error value mapped by the function f.
   */
+  flatMapIf: <D2, E2, R2>(c: boolean, f: (_:R) => Arrow<D2, E2, R2>) => Arrow<D & D2, E | E2, R | R2>
+  /**
+  * Returns an Arrow with the error value mapped by the function f.
+  */
   leftMap: <E2>(f: (_:E) => E2) => Arrow<D, E2, R>
   /**
   * Returns an Arrow with the error value mapped by the function f.
@@ -250,6 +254,17 @@ class InternalArrow<D, E, R> {
       f
     },
     ))
+  }
+
+  flatMapIf<D2, E2, R2>(c: boolean, f: (_:R) => Arrow<D2, E2, R2>): Arrow<D & D2, E | E2, R | R2> {
+    if (c) {
+      return new InternalArrow<D & D2, E | E2, R | R2>(undefined, this.operations.prepend({
+        _tag: Ops.flatMap,
+        f
+      },
+      ))
+    }
+    return new InternalArrow<D & D2, E | E2, R | R2>(undefined, this.operations)
   }
   
   leftFlatMap<D2, E2>(f: (_:E) => Arrow<D2, never, E2>): Arrow<D & D2, E2, R> {
