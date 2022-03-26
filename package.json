@@ -14,7 +14,7 @@
   "scripts": {
     "test": "jest --verbose --env=node",
     "test:dev": "jest --verbose --env=node --watchAll",
-    "build": "tsc",
+    "build": "npx tsc",
     "lint": "npx eslint --fix './src/**/*'",
     "prepublishOnly": "npm test && npm run build"
   },

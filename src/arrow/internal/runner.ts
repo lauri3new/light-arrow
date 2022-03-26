@@ -29,16 +29,15 @@ export function runner(context: any, operations: Stack<Operation>) {
     result = [result, r]
   }
   const mergeCtx = (c: any) => {
-    let x = typeof ctx
+    const x = typeof ctx
     if (x === 'object') {
       return { ...ctx, ...c }
-    } else if (x === 'undefined') {
+    } if (x === 'undefined') {
       return c
-    } else if (typeof c !== 'undefined') {
+    } if (typeof c !== 'undefined') {
       return c
-    } else {
-      return ctx
     }
+    return ctx
   }
   const noChange = () => {}
   const _run = (op: Runnable) => {
@@ -52,7 +51,7 @@ export function runner(context: any, operations: Stack<Operation>) {
         })
       }
       case Ops.construct: {
-        return new Promise((res) => {
+        return new Promise<void>((res) => {
           let pending = true
           const resolve = (a: any) => {
             result = a
@@ -133,9 +132,9 @@ export function runner(context: any, operations: Stack<Operation>) {
               }
               case Ops.ifOrElse: {
                 if (op.f[0](error)) {
-                resetError()
-                ctx = mergeCtx(op.f[1].__ctx)
-                stack.push(...op.f[1].__ops.toArray())
+                  resetError()
+                  ctx = mergeCtx(op.f[1].__ctx)
+                  stack.push(...op.f[1].__ops.toArray())
                 }
                 break
               }
@@ -149,7 +148,7 @@ export function runner(context: any, operations: Stack<Operation>) {
               case Ops.bracket: {
                 x = op.f[1](result)
                 x = await x.runAsPromise(mergeCtx(x.__ctx))
-                let a = op.f[0](result)
+                const a = op.f[0](result)
                 await a.runAsPromise(mergeCtx(a.__ctx))
                 if (x.failure) {
                   throw x.failure
