@@ -38,3 +38,13 @@ export const Left = <E, A = never>(a: E): Either<E, A> => ({
   flatMap: _ => Left<E>(a),
   match: (f, g) => f(a)
 })
+
+const fromNullable = <R>(
+  a: R | null | undefined
+): Either<null, R> => (a === undefined || a === null ? Left(null) : Right(a))
+
+export const either = {
+  Right,
+  Left,
+  fromNullable
+}

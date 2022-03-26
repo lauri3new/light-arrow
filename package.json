@@ -1,6 +1,6 @@
 {
   "name": "@light-arrow/arrow",
-  "version": "1.1.9",
+  "version": "1.1.10",
   "publishConfig": {
     "access": "public"
   },
@@ -14,7 +14,7 @@
   "scripts": {
     "test": "jest --verbose --env=node",
     "test:dev": "jest --verbose --env=node --watchAll",
-    "build": "tsc",
+    "build": "npx tsc",
     "lint": "npx eslint --fix './src/**/*'",
     "prepublishOnly": "npm test && npm run build"
   },
