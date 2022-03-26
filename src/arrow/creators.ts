@@ -69,3 +69,25 @@ export const drawEither = <D, E, R>(f:(_:D) => Either<E, R>):Arrow<D, E, R> => A
  * Create an Arrow from an Either type.
  */
 export const fromEither = <E, R>(a:Either<E, R>):Arrow<{}, E, R> => Arrow(async (_:{}) => a)
+
+/**
+ * Create a function returning an Arrow from an async function.
+ */
+export const convertAsync = <A, R, E = Error>(
+  f: (_: A) => Promise<R>
+): (__: A) => Arrow<{}, E, R> => (a: A) => Arrow(async () => f(a).then(Right).catch(Left))
+
+/**
+ * Create a function returning an Arrow from an async function.
+ */
+export const convertAsyncE = <E>() => <A, R>(
+  f: (_: A) => Promise<R>
+): (__: A) => Arrow<{}, E, R> => (a: A) => Arrow(async () => f(a).then(Right).catch(Left))
+
+
+/**
+ * Create a function returning an Arrow from an async function.
+ */
+export const convertAsyncNullable = <A, R>(
+  f: (_: A) => Promise<R | null | undefined>
+): (__: A) => Arrow<{}, null, R> => (a: A) => Arrow(async () => f(a).then(b => (b === undefined || b === null ? Left(null) : Right(b))))

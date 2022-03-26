@@ -1,5 +1,6 @@
 
 import {
+  convertAsync,
   draw, drawAsync, drawEither,
   drawFailableAsync, drawFailableFunction, drawFunction,
   drawNullable,
@@ -143,4 +144,27 @@ it('Arrow should draw from dependencies', async () => {
   const result = await sendViaClient('jj')
     .runAsPromiseResult(client)
   expect(result).toEqual('success')
+})
+
+it('convertAsync should convert async', async () => {
+  const myAsync = async (a: string) => 5
+
+  const myFuncArrow = convertAsync(myAsync)
+
+  const result = await myFuncArrow('ok')
+    .runAsPromiseResult({})
+  expect(result).toEqual(5)
+})
+
+it('convertAsync should convert async', async () => {
+  const myAsync = async (a: string) => {
+    throw new Error('doh')
+  }
+
+  const myFuncArrow = convertAsync(myAsync)
+
+  const result = await myFuncArrow('ok')
+    .runAsPromise({})
+  expect(result.hasError).toEqual(true)
+  expect(result.error).toEqual(new Error('doh'))
 })
